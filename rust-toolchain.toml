@@ -1,0 +1,6 @@
+# `stable` is 1.99.1 on the box. An exact "1.99.1" names a toolchain rustup has
+# not installed there, so it would download one. scripts/check-toolchain.sh
+# fails if `stable` moves. See docs/plan.md section 7.
+[toolchain]
+channel = "stable"
+targets = ["wasm32-unknown-unknown"]
