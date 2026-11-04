@@ -143,13 +143,15 @@ listed one by one, not `2d`, which adds `webgl2` (Q2) and gilrs and wayland, whi
 - **Constants:** `Stations`, `Routes`, `Buses`, `Capacity`, `MaxPassengers`, `MaxEdits`, `Fault`, and `Networks`: a
   hand-listed set of route maps, including adversarial edits, disconnected networks, and an edit to one route that turns
   `stay` false for a rider on another.
-- **Variables:** `network`, `dir`, `retiring`, `queue`, `onboard`, `busAt`, `busPhase`, `delivered`, `edits`. The table is
-  an operator `Table(network)` implementing the section 2 equations, so only realizable tables exist.
-- **Actions:** `Spawn`, `Move(b)`, `Alight(b)`, `Board(b)`, `Depart(b)`, `EditNetwork` (to any `Networks` member, retiring
+- **Variables:** `network`, `dir`, `retiring`, `queue`, `onboard`, `busAt`, `busPhase`, `delivered`, `edits`, `spawned`, `want`.
+  `spawned` is the independent passenger ledger and `want` records each destination shape. The constant table
+  `Table[network]` implements the section 2 equations, so only realizable tables exist.
+- **Actions:** `Spawn`, `Move(b)`, `Alight(b)`, `EndAlight(b)`, `Board(b)`, `Depart(b)`, `EditNetwork` (to any `Networks` member, retiring
   buses; the same step sets every stopped non-retiring bus on every route to `Alighting`).
+  `EndAlight(b)` parks retiring buses, relocates empty off-route buses, or reverses at a terminal before boarding.
 - **Safety:** invariants `CapacitySafe` (a bus holds at most `Capacity`) and `Conserved` (spawned = waiting + onboard + delivered,
   each passenger in one place); action properties `NoWrongDelivery` (only at the wanted shape), `AlightBeforeBoard` (no
-  `Board(b)` while `b` holds a rider who should alight under the current `Table(network)`, whichever route the last edit
+  `Board(b)` while `b` holds a rider who should alight under the current `Table[network]`, whichever route the last edit
   touched), `TransferSound` (bus to queue at that bus's stop, in one step).
 
 Liveness, under weak fairness per bus on each action, once edits stop (`edits` is bounded, `EditNetwork` is not fair).
@@ -160,11 +162,15 @@ not needed. The spec has no overflow: game over ends these guarantees.
   equal on `Alight`, so no cycles.
 
 Start with 4 stations, 2 routes, 2 buses, capacity 2, 3 passengers, 1 edit. Arrivals are bounded by `MaxPassengers`;
-liveness under unbounded arrivals would need a separate FIFO argument. Use symmetry sets only in the safety config,
-because TLC can miss liveness violations under symmetry. `Boarding.fault.cfg` sets `Fault` to one deliberate bug at a time
-(board at `Capacity`, board before alight, split transfer, restart only the edited route's buses); each must give a
-counterexample on its property. Passing runs
-report completed exploration and state count. Run: `java -cp "$TLA2TOOLS" tlc2.TLC -workers auto -config <cfg> Boarding.tla`.
+liveness under unbounded arrivals would need a separate FIFO argument. M1.1 uses no symmetry: hand-listed networks
+make station symmetry unsound, buses have fixed routes, and passenger ids record spawn order.
+`Boarding.fault.cfg` is the template that `scripts/check-boarding.sh` rewrites. One fault run checks one property,
+so an invariant cannot mask an action property. The faults are `BoardAtCapacity`, `BoardBeforeAlight`, `SplitTransfer`,
+`RestartEditedOnly`, and `DeliverAnywhere`; each must give a counterexample on its own property.
+Passing exhaustive runs report completed exploration and state count. Run: `scripts/check-boarding.sh`.
+Inside the sandbox, run `scripts/check-boarding.sh --simulate`; simulation does not prove exhaustive safety.
+The script checks the hand-derived routing golden assertions before exploring actions. `Conserved` counts every
+queue and onboard position separately, plus delivery, against the independent spawn ledger.
 
 TLC proves the spec, not the Rust. Two checks close the gap, both on a verification trace separate from `SimEvent`.
 With the `trace` feature, core logs every microstep as `(tick, action, bus, passenger, before, after)` with stable
@@ -259,7 +265,7 @@ Measurement:
 | Rust | rustup 1.29.3; toolchain `stable` is 1.99.1, with `wasm32-unknown-unknown`; 1.97.1 not installed | No install. `rust-toolchain.toml` sets channel `stable`, because an exact `1.99.1` names a toolchain rustup would download. `scripts/check-toolchain.sh` fails if `stable` moves. `rust-version` stays 1.97.1 (Bevy 0.20.1 MSRV) | M0 |
 | trunk, wasm-bindgen-cli | trunk 0.22.1, wasm-bindgen-cli 0.2.130 | Keep wasm-bindgen-cli at the `Cargo.lock` version; trunk replaces wasm-pack | M0 |
 | wasm-opt, brotli | missing | M0.2 confirmed Trunk runs `wasm-opt` in release and would download it. `web/index.html` sets `data-wasm-opt="0"` until M5.3 | M5 |
-| TLC | `tla2tools.jar` 2.19 in a local tools dir, Java 17 | Set `TLA2TOOLS`; the jar belongs to another project, so copy or pin a hash | M1 |
+| TLC | `tla2tools.jar` 2.19 in a local tools dir, Java 17 | Set `TLA2TOOLS` or provide `tlc` on PATH; `scripts/check-boarding.sh` pins the TLC build by its exact version line | M1 |
 | Bend 2 | missing; clang also missing (gcc is [not a target](https://github.com/bendlang/bend/blob/4024f04/WONTFIX.txt#L27)); Bun 1.4.2, Node 24 | Review `install.sh` before running, pin 2.0.39, set `BEND_NO_TELEMETRY=1`, use the JS target; clang only for M4.5 | M4 |
 | GPU, browser | no `/dev/dri`; Chrome 156 gets a SwiftShader adapter here but cannot show a WebGPU canvas, so this box cannot validate rendering or 60 fps | Ordinary laptop with Chrome for perf and WebGPU checks | M0, M5 |
 
@@ -325,7 +331,7 @@ gaps: undefined semantics and formal checks that could not fail. Q1 settles Bend
 | 3 | high | Accept | Moving buses own their segment, `Retiring` state added, per-phase rules, atomic rejection, M2.5c fixtures |
 | 4 | high | Accept (part) | Per-bus timers and stable bus order added. No snapshot or max dwell: seats already bound boarding, so M2.5b tests that |
 | 5 | high | Accept | `Delivery` restated for the final topology, fairness per bus, game over ends the guarantee |
-| 6 | high | Accept | Spec models `network`, `dir`, `retiring`; `Table(network)` is derived; `Networks` includes disconnected cases |
+| 6 | high | Accept | Spec models `network`, `dir`, `retiring`; `Table[network]` is derived; `Networks` includes disconnected cases |
 | 7 | med | Accept | `Capacity + 1` could never fail; `Fault` actions added, transition rules are action properties, exploration reported |
 | 8 | high | Accept | Separate microstep trace with `PassengerId` and a TLA+ mapping; corrupted traces must fail |
 | 9 | med | Accept (part) | Table `rev` and output contract added. No `Sim` injection or subprocess errors: Q1 removes the Bend oracle |
