@@ -66,12 +66,14 @@ with a queue-entry `seq`, so the oldest eligible passenger is the lowest `seq` a
 while stopped, and at 0 moves one passenger and resets. A phase with nothing left to do ends in the same tick; a bus with no
 free seat or nobody eligible departs. Each tick runs all buses through alight, then all through board, by ascending `BusId`:
 a transfer can board another bus that tick, and the lower `BusId` wins a contested passenger. Boarding fills seats and nobody
-alights during it, so free seats bound dwell.
+alights during it, so between table changes free seats bound dwell.
 
 **Network edits.** A command that fails validation changes nothing (section 3). Stations are permanent and a moving bus
 owns its segment `(from, to)`, so movement never depends on the route. Unloaded riders follow the normal rules.
-- **Any edit:** a moving bus finishes its segment. A stopped bus on an edited route restarts at `Alighting` under the new
-  table. `dir` is kept and the next stop is read from the new list.
+- **Any edit:** a moving bus finishes its segment. `dir` is kept and the next stop is read from the new list.
+- **Any table change:** the table is global, so one edit can turn `stay` false for riders on any route. In the same step as
+  the swap, every stopped bus on every route, edited or not, restarts at `Alighting` under the new table, so it runs
+  alighting again before any more boarding. A `Retiring` bus is already unloading and never boards, so nothing changes for it.
 - **Bus at a stop no longer on its route:** all riders alight (delivered if the shape matches), nobody boards, and the
   bus heads for the nearest stop on the list (squared grid distance, ties to lowest index), `Fwd` unless that is the last.
 - **`RemoveRoute`:** the route and its slot leave the network at once. Its buses become `Retiring`, hold no route and
@@ -117,7 +119,8 @@ impl Sim {
 
 - **Router contract.** `solve` takes a snapshot within limits and returns a table with `table.rev == net.rev` satisfying
   section 2. `Sim` calls `DijkstraRouter` directly; test-only `ReferenceRouter` (Bellman-Ford) is compared table to table, so no injection.
-- **Tick order.** Run queued commands, recompute the table if dirty, spawn, move buses, alight, board, overflow, rewards.
+- **Tick order.** Run queued commands, recompute the table if dirty (restarting all stopped buses, section 2), spawn, move
+  buses, alight, board, overflow, rewards.
   Commands run in queue order and are validated when they run, so an earlier one can invalidate a later one; a rejected
   command changes nothing and emits `CommandRejected`. In `SimMode::Reward` a tick runs commands only.
 - **Replay.** Header: `RULES_VERSION` (bumped by any rule or routing change), pack sha256, scenario `id`, `seed`, `Balance`.
@@ -137,13 +140,16 @@ Bevy: pin `=0.20.1`, `default-features = false`. The default set pulls `3d` and 
 
 `spec/Boarding.tla` models section 2 at the level of whole actions, not geometry.
 - **Constants:** `Stations`, `Routes`, `Buses`, `Capacity`, `MaxPassengers`, `MaxEdits`, `Fault`, and `Networks`: a
-  hand-listed set of route maps, including adversarial edits and disconnected networks.
+  hand-listed set of route maps, including adversarial edits, disconnected networks, and an edit to one route that turns
+  `stay` false for a rider on another.
 - **Variables:** `network`, `dir`, `retiring`, `queue`, `onboard`, `busAt`, `busPhase`, `delivered`, `edits`. The table is
   an operator `Table(network)` implementing the section 2 equations, so only realizable tables exist.
-- **Actions:** `Spawn`, `Move(b)`, `Alight(b)`, `Board(b)`, `Depart(b)`, `EditNetwork` (to any `Networks` member, retiring buses).
+- **Actions:** `Spawn`, `Move(b)`, `Alight(b)`, `Board(b)`, `Depart(b)`, `EditNetwork` (to any `Networks` member, retiring
+  buses; the same step sets every stopped non-retiring bus on every route to `Alighting`).
 - **Safety:** invariants `CapacitySafe` (a bus holds at most `Capacity`) and `Conserved` (spawned = waiting + onboard + delivered,
   each passenger in one place); action properties `NoWrongDelivery` (only at the wanted shape), `AlightBeforeBoard` (no
-  `Board(b)` while `b` holds a rider who should alight), `TransferSound` (bus to queue at that bus's stop, in one step).
+  `Board(b)` while `b` holds a rider who should alight under the current `Table(network)`, whichever route the last edit
+  touched), `TransferSound` (bus to queue at that bus's stop, in one step).
 
 Liveness, under weak fairness per bus on each action, once edits stop (`edits` is bounded, `EditNetwork` is not fair).
 `Board(b)` takes the oldest eligible passenger and `Depart(b)` is disabled while one fits, so per-passenger fairness is
@@ -155,12 +161,14 @@ not needed. The spec has no overflow: game over ends these guarantees.
 Start with 4 stations, 2 routes, 2 buses, capacity 2, 3 passengers, 1 edit. Arrivals are bounded by `MaxPassengers`;
 liveness under unbounded arrivals would need a separate FIFO argument. Use symmetry sets only in the safety config,
 because TLC can miss liveness violations under symmetry. `Boarding.fault.cfg` sets `Fault` to one deliberate bug at a time
-(board at `Capacity`, board before alight, split transfer); each must give a counterexample on its property. Passing runs
+(board at `Capacity`, board before alight, split transfer, restart only the edited route's buses); each must give a
+counterexample on its property. Passing runs
 report completed exploration and state count. Run: `java -cp "$TLA2TOOLS" tlc2.TLC -workers auto -config <cfg> Boarding.tla`.
 
 TLC proves the spec, not the Rust. Two checks close the gap, both on a verification trace separate from `SimEvent`.
 With the `trace` feature, core logs every microstep as `(tick, action, bus, passenger, before, after)` with stable
-`PassengerId`s, and each microstep maps to one TLA+ action (each rider moved is one `Alight` or `Board`). Proptests assert
+`PassengerId`s, and each microstep maps to one TLA+ action (each rider moved is one `Alight` or `Board`; a table swap and
+all its restarts are one `EditNetwork`). Proptests assert
 the same invariants after every microstep, and `BoardingTrace.tla` checks traces against `Next`. Corrupted traces must fail.
 
 ## 5. Bend usage
@@ -271,7 +279,7 @@ laptop (Q3), `clang` needs clang 14+. M1 needs no new tools and precedes M2 to k
 | M2.4 Router | `network`, `DijkstraRouter`, `ReferenceRouter` | Exact tables, derived by hand first, on: disconnected, shared terminal, parallel routes, no path, reversal. Routers equal on proptest networks; a wrong hop cost fails | box |
 | M2.5a Movement | `Sim`, shuttle, terminal reversal | Fixture route gives the expected stop sequence and arrival ticks | box |
 | M2.5b Timed service | Timers, alight, board, bus order | Exact logs for competing buses, same-tick transfer, sustained arrivals; dwell <= free seats x 8 ticks | box |
-| M2.5c Edits | Section 2 edit rules, `Retiring` | Fixture per bus phase, all original stops removed, reversed order, repeated edits while retiring; an invalid edit leaves `state_hash` unchanged | box |
+| M2.5c Edits | Section 2 edit rules, `Retiring` | Fixture per bus phase, all original stops removed, reversed order, repeated edits while retiring; a bus boarding on an unedited route drops riders whose `stay` turned false before it boards again; an invalid edit leaves `state_hash` unchanged | box |
 | M2.5d Spawning | `spawn`, accumulator, spawn pause | Golden spawn ticks and `want` values; population never passes 5,000 | box |
 | M2.5e Overflow | `overflow`, game over | Game over on exactly tick 1350 of overflow; decay of 2 per tick; safety proptests hold after every microstep | box |
 | M2.6 Bot games | Greedy bot and do-nothing baseline | 10,000 ticks on all 16 scenarios: bot delivers at least 50% of spawned *(tune)* and outlives the baseline | box |
