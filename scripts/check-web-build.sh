@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-# M0.2 check. --offline makes a missing tool fail here instead of being
-# downloaded. The webgl check guards plan Q2: Bevy's `2d` feature pulls in
-# `webgl2`, which adds the GL backend even though `webgpu` wins at runtime.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 

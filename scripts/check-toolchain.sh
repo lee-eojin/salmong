@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# M0.1 check. rust-toolchain.toml says `stable`, which moves on `rustup update`,
-# so this is what holds the compiler at the version docs/plan.md records.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
