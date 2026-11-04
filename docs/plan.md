@@ -250,7 +250,7 @@ Measurement:
 | Rust | Debian 1.85.1, no rustup, no wasm std | Install rustup, pin 1.97.1 (Bevy 0.20.1 MSRV), add `wasm32-unknown-unknown` | M0 |
 | trunk, wasm-bindgen-cli | missing | `cargo install trunk --locked` (0.22.1, needs Rust 1.96.1; replaces wasm-pack); wasm-bindgen-cli at the `Cargo.lock` version (now 0.2.130) | M0 |
 | wasm-opt, brotli | missing | Trunk may fetch `wasm-opt`; confirm at M0 | M5 |
-| TLC | `tla2tools.jar` 2.19 in `/workspace/lim/.tools`, Java 17 | Set `TLA2TOOLS`; the jar belongs to another project, so copy or pin a hash | M1 |
+| TLC | `tla2tools.jar` 2.19 in a local tools dir, Java 17 | Set `TLA2TOOLS`; the jar belongs to another project, so copy or pin a hash | M1 |
 | Bend 2 | missing; clang also missing (gcc is [not a target](https://github.com/bendlang/bend/blob/4024f04/WONTFIX.txt#L27)); Bun 1.4.2, Node 24 | Review `install.sh` before running, pin 2.0.39, set `BEND_NO_TELEMETRY=1`, use the JS target; clang only for M4.5 | M4 |
 | GPU, browser | no `/dev/dri`; Chrome 156 WebGPU probe timed out, so this box cannot validate 60 fps | Ordinary laptop with Chrome for perf and WebGPU checks | M0, M5 |
 
@@ -306,7 +306,7 @@ Q1 to Q6 are **DECIDED; LEJ may change them.**
 
 ## 10. Review findings
 
-**Done.** Codex reviewed the draft (`/workspace/salmong-artifacts/plan-review-codex.md`); all 18 findings are applied above, 4 in part. Main
+**Done.** Codex reviewed the draft, recorded in a local codex review log (not committed); all 18 findings are applied above, 4 in part. Main
 gaps: undefined semantics and formal checks that could not fail. Q1 settles Bend placement; the core and game split held once core owned mode and ticks.
 
 | # | Severity | Decision | Reason |
