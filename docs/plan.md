@@ -1,6 +1,6 @@
 # salmong: design plan
 
-Status: reviewed 2026-11-05 (section 10). M0.1 adds an empty workspace; no game code exists yet. Numbers marked *(tune)* are starting
+Status: reviewed 2026-11-05 (section 10). M0.2 adds a blank Bevy app; no game rules exist yet. Numbers marked *(tune)* are starting
 values. All budgets are unmeasured targets until M0 or M5.
 
 salmong is a bus-route puzzle in the same genre as Mini Metro. It shares mechanics only: names, art, audio,
@@ -128,7 +128,8 @@ impl Sim {
   RNG state, timers and `seq` counters.
 
 `salmong-game` ECS. Core owns all rules; ECS holds presentation only (`StationView`, `BusView`, `RouteView`, `SimRes`).
-Bevy: pin `=0.20.1`, `default-features = false`. The default set pulls `3d` and `audio`, which we do not need yet.
+Bevy: pin `=0.20.1`, `default-features = false`. The default set pulls `3d` and `audio`, which we do not need yet. Features are
+listed one by one, not `2d`, which adds `webgl2` (Q2) and gilrs and wayland, which need `pkg-config` to build natively.
 - **States:** `Loading`, `Menu`, `Playing`, `Reward`, `GameOver`. The last three only follow `view().mode`.
 - **FixedUpdate (30 Hz):** `apply_commands -> step_sim -> dispatch_events`. `apply_commands` drains `PendingCommands`
   into `Sim::queue`, so every input belongs to one explicit tick.
@@ -256,8 +257,8 @@ Measurement:
 | Need | Box today | Action | Blocks |
 |---|---|---|---|
 | Rust | rustup 1.29.3; toolchain `stable` is 1.99.1, with `wasm32-unknown-unknown`; 1.97.1 not installed | No install. `rust-toolchain.toml` sets channel `stable`, because an exact `1.99.1` names a toolchain rustup would download. `scripts/check-toolchain.sh` fails if `stable` moves. `rust-version` stays 1.97.1 (Bevy 0.20.1 MSRV) | M0 |
-| trunk, wasm-bindgen-cli | missing | `cargo install trunk --locked` (0.22.1, needs Rust 1.96.1; replaces wasm-pack); wasm-bindgen-cli at the `Cargo.lock` version (now 0.2.130) | M0 |
-| wasm-opt, brotli | missing | Trunk may fetch `wasm-opt`; confirm at M0 | M5 |
+| trunk, wasm-bindgen-cli | trunk 0.22.1, wasm-bindgen-cli 0.2.130 | Keep wasm-bindgen-cli at the `Cargo.lock` version; trunk replaces wasm-pack | M0 |
+| wasm-opt, brotli | missing | M0.2 confirmed Trunk runs `wasm-opt` in release and would download it. `web/index.html` sets `data-wasm-opt="0"` until M5.3 | M5 |
 | TLC | `tla2tools.jar` 2.19 in a local tools dir, Java 17 | Set `TLA2TOOLS`; the jar belongs to another project, so copy or pin a hash | M1 |
 | Bend 2 | missing; clang also missing (gcc is [not a target](https://github.com/bendlang/bend/blob/4024f04/WONTFIX.txt#L27)); Bun 1.4.2, Node 24 | Review `install.sh` before running, pin 2.0.39, set `BEND_NO_TELEMETRY=1`, use the JS target; clang only for M4.5 | M4 |
 | GPU, browser | no `/dev/dri`; Chrome 156 WebGPU probe timed out, so this box cannot validate 60 fps | Ordinary laptop with Chrome for perf and WebGPU checks | M0, M5 |
@@ -270,7 +271,7 @@ laptop (Q3), `clang` needs clang 14+. M1 needs no new tools and precedes M2 to k
 | Unit | Work | Check | Where |
 |---|---|---|---|
 | M0.1 Rust | Use installed 1.99.1 (section 7), MSRV 1.97.1, wasm target | `scripts/check-toolchain.sh`: `rustc -V` is 1.99.1; empty lib passes `cargo check` for wasm32 | box |
-| M0.2 Blank web build | Trunk, wasm-bindgen-cli, blank Bevy 2D app | `trunk build --release` exits 0; wasm size recorded; `cargo tree -e features` shows whether `webgpu` overrides the `webgl2` that `2d` pulls in | box |
+| M0.2 Blank web build | Trunk, wasm-bindgen-cli, blank Bevy 2D app | `scripts/check-web-build.sh`: `trunk build --release` exits 0; wasm size recorded; `cargo tree -e features` shows whether `webgpu` overrides the `webgl2` that `2d` pulls in | box |
 | M0.3 WebGPU | Run the blank app on the reference laptop | App clears to a known colour and logs a WebGPU adapter; device recorded | gpu |
 | M1.1 Safety | `Boarding.tla`, safety and fault configs | TLC completes the safety config; each `Fault` gives a counterexample on its property | box |
 | M1.2 Liveness | Live config, disconnected final network included | TLC completes and passes `Delivery`, `BusProgress`, `NoPingPong` | box |
