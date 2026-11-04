@@ -1,6 +1,6 @@
 # salmong: design plan
 
-Status: reviewed 2026-11-05 (section 10). M0.2 adds a blank Bevy app; no game rules exist yet. Numbers marked *(tune)* are starting
+Status: reviewed 2026-11-05 (section 10). M0.2 adds a blank Bevy app; no game rules exist yet. M0.3 awaits its laptop run (`docs/m0.3-webgpu-check.md`). Numbers marked *(tune)* are starting
 values. All budgets are unmeasured targets until M0 or M5.
 
 salmong is a bus-route puzzle in the same genre as Mini Metro. It shares mechanics only: names, art, audio,
@@ -89,7 +89,7 @@ crates/salmong-pack/     serde code for the scenario pack: parse_pack, write_pac
 crates/salmong-oracle/   native only: Rust reference generator, ReferenceRouter. Never in the wasm graph
 bend/, assets/scenarios/ scenarios.bend; pack.v1.json, pack.v1.sha256
 spec/                    Boarding.tla, Boarding.{safety,live,fault}.cfg, BoardingTrace.tla
-web/index.html           Trunk entry, navigator.gpu check, error screen
+web/index.html           Trunk entry, WebGPU adapter check and log, error screen
 ```
 
 `salmong-core` modules: `ids`, `rng` (PCG), `balance`, `scenario`, `network`, `routing`, `boarding`, `spawn`, `overflow`, `rewards`,
@@ -261,7 +261,7 @@ Measurement:
 | wasm-opt, brotli | missing | M0.2 confirmed Trunk runs `wasm-opt` in release and would download it. `web/index.html` sets `data-wasm-opt="0"` until M5.3 | M5 |
 | TLC | `tla2tools.jar` 2.19 in a local tools dir, Java 17 | Set `TLA2TOOLS`; the jar belongs to another project, so copy or pin a hash | M1 |
 | Bend 2 | missing; clang also missing (gcc is [not a target](https://github.com/bendlang/bend/blob/4024f04/WONTFIX.txt#L27)); Bun 1.4.2, Node 24 | Review `install.sh` before running, pin 2.0.39, set `BEND_NO_TELEMETRY=1`, use the JS target; clang only for M4.5 | M4 |
-| GPU, browser | no `/dev/dri`; Chrome 156 WebGPU probe timed out, so this box cannot validate 60 fps | Ordinary laptop with Chrome for perf and WebGPU checks | M0, M5 |
+| GPU, browser | no `/dev/dri`; Chrome 156 gets a SwiftShader adapter here but cannot show a WebGPU canvas, so this box cannot validate rendering or 60 fps | Ordinary laptop with Chrome for perf and WebGPU checks | M0, M5 |
 
 ## 8. Milestones
 
@@ -272,7 +272,7 @@ laptop (Q3), `clang` needs clang 14+. M1 needs no new tools and precedes M2 to k
 |---|---|---|---|
 | M0.1 Rust | Use installed 1.99.1 (section 7), MSRV 1.97.1, wasm target | `scripts/check-toolchain.sh`: `rustc -V` is 1.99.1; empty lib passes `cargo check` for wasm32 | box |
 | M0.2 Blank web build | Trunk, wasm-bindgen-cli, blank Bevy 2D app | `scripts/check-web-build.sh`: `trunk build --release` exits 0; wasm size recorded; `cargo tree -e features` shows whether `webgpu` overrides the `webgl2` that `2d` pulls in | box |
-| M0.3 WebGPU | Run the blank app on the reference laptop | App clears to a known colour and logs a WebGPU adapter; device recorded | gpu |
+| M0.3 WebGPU | Run the blank app on the reference laptop (`docs/m0.3-webgpu-check.md`) | App clears to a known colour and logs a WebGPU adapter; device recorded. `scripts/check-webgpu-startup.mjs` covers startup on the box | gpu |
 | M1.1 Safety | `Boarding.tla`, safety and fault configs | TLC completes the safety config; each `Fault` gives a counterexample on its property | box |
 | M1.2 Liveness | Live config, disconnected final network included | TLC completes and passes `Delivery`, `BusProgress`, `NoPingPong` | box |
 | M2.1 Pack format | `salmong-pack`: `parse_pack`, `write_pack`; `Scenario::validate` | Parse then write gives the same bytes; `version` 2, unknown fields, non-canonical bytes are errors; one bad fixture per rule returns that rule's error | box |
@@ -306,7 +306,7 @@ laptop (Q3), `clang` needs clang 14+. M1 needs no new tools and precedes M2 to k
 Q1 to Q6 are **DECIDED; LEJ may change them.**
 - **Q1. Is "routing in Bend" a hard product claim? DECIDED: no.** Bend does offline scenario generation only, and that
   is enough. Rust does all routing. The Bend router oracle is dropped; `ReferenceRouter` keeps a second implementation.
-- **Q2. WebGL2 fallback? DECIDED: none in MVP.** Browsers without WebGPU get the error screen.
+- **Q2. WebGL2 fallback? DECIDED: none in MVP.** Browsers without WebGPU, or with no adapter, get the error screen.
 - **Q3. Reference perf machine? DECIDED: ordinary laptop, Chrome.** Section 6 fixes the run protocol.
 - **Q4. Loop routes in MVP? DECIDED: after MVP.** They change `Dir`, terminals and the spec.
 - **Q5. Bend 2 or Bend 1? DECIDED: Bend 2.**

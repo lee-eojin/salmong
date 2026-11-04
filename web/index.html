@@ -11,12 +11,27 @@
         height: 100%;
         margin: 0;
       }
+
+      /* Inline, its baseline gap adds a scrollbar that narrows the canvas. */
+      canvas {
+        display: block;
+      }
     </style>
   </head>
   <body>
     <p id="no-webgpu" hidden>salmong needs WebGPU. Open it in a browser that supports WebGPU.</p>
-    <script>
-      document.getElementById("no-webgpu").hidden = "gpu" in navigator;
+    <script type="module">
+      // Bevy asks for the same power preference, so this is the adapter it gets.
+      // wgpu passes on only `description`, which Chrome leaves empty by default.
+      const adapter = await navigator.gpu?.requestAdapter({ powerPreference: "high-performance" });
+      document.getElementById("no-webgpu").hidden = Boolean(adapter);
+      if (adapter) {
+        const { vendor, architecture, device, description, isFallbackAdapter } = adapter.info;
+        const info = { vendor, architecture, device, description, isFallbackAdapter };
+        console.info(`salmong: WebGPU adapter ${JSON.stringify(info)}`);
+      } else {
+        console.error("salmong: no WebGPU adapter");
+      }
     </script>
   </body>
 </html>
