@@ -1,7 +1,7 @@
 #![cfg(not(target_arch = "wasm32"))]
 
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Output};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Syntax {
@@ -376,7 +376,9 @@ fn comment_lines(syntax: Syntax, source: &str) -> Vec<usize> {
 }
 
 fn repo_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
+    let manifest_dir = std::env::var_os("CARGO_MANIFEST_DIR")
+        .expect("CARGO_MANIFEST_DIR is unset, so run this test through cargo test");
+    Path::new(&manifest_dir).join("../..")
 }
 
 fn listed_files() -> Vec<String> {
@@ -498,4 +500,50 @@ fn classifies_files() {
     assert_eq!(classify("spec/Boarding.safety.cfg"), Some(FileClass::Scan(Syntax::Tla)));
     assert_eq!(classify("assets/unknown.wgsl"), None);
     assert_eq!(classify("Makefile"), None);
+}
+
+fn scan_in_child(manifest_dir: Option<&Path>) -> Output {
+    let mut scan = Command::new(std::env::current_exe().expect("the test binary has a path"));
+    scan.args(["--exact", "tracked_source_has_no_comments"]);
+    scan.env_remove("RUST_TEST_NOCAPTURE");
+    match manifest_dir {
+        Some(dir) => scan.env("CARGO_MANIFEST_DIR", dir),
+        None => scan.env_remove("CARGO_MANIFEST_DIR"),
+    };
+    scan.output().expect("the test binary starts")
+}
+
+fn fixture_tree_with_a_comment() -> PathBuf {
+    let root = std::env::temp_dir().join(format!("salmong-no-comments-{}", std::process::id()));
+    std::fs::create_dir_all(root.join("crates/salmong-core")).expect("fixture dirs are writable");
+    std::fs::create_dir_all(root.join("scripts")).expect("fixture dirs are writable");
+    std::fs::write(root.join("Cargo.toml"), "[workspace]\n").expect("fixture files are writable");
+    std::fs::write(root.join("scripts/planted.sh"), "# planted\n")
+        .expect("fixture files are writable");
+    let init = Command::new("git")
+        .args(["init", "-q"])
+        .current_dir(&root)
+        .status()
+        .expect("git must be on PATH");
+    assert!(init.success(), "git init failed in {root:?}");
+    root
+}
+
+#[test]
+fn scan_reads_the_tree_named_at_run_time() {
+    let root = fixture_tree_with_a_comment();
+    let output = std::panic::catch_unwind(|| scan_in_child(Some(&root.join("crates/salmong-core"))));
+    std::fs::remove_dir_all(&root).expect("the fixture tree is removable");
+    let output = output.unwrap_or_else(|panic| std::panic::resume_unwind(panic));
+    let report = String::from_utf8_lossy(&output.stdout);
+    assert!(!output.status.success(), "the scan missed the fixture comment: {report}");
+    assert!(report.contains("scripts/planted.sh:1: comment"), "wrong report: {report}");
+}
+
+#[test]
+fn scan_fails_without_a_run_time_manifest_dir() {
+    let output = scan_in_child(None);
+    let report = String::from_utf8_lossy(&output.stdout);
+    assert!(!output.status.success(), "the scan ran with no run-time root: {report}");
+    assert!(report.contains("CARGO_MANIFEST_DIR"), "wrong report: {report}");
 }
