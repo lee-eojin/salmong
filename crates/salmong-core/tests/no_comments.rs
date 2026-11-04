@@ -505,6 +505,7 @@ fn classifies_files() {
 fn scan_in_child(manifest_dir: Option<&Path>) -> Output {
     let mut scan = Command::new(std::env::current_exe().expect("the test binary has a path"));
     scan.args(["--exact", "tracked_source_has_no_comments"]);
+    scan.env_remove("RUST_TEST_NOCAPTURE");
     match manifest_dir {
         Some(dir) => scan.env("CARGO_MANIFEST_DIR", dir),
         None => scan.env_remove("CARGO_MANIFEST_DIR"),
@@ -517,7 +518,8 @@ fn fixture_tree_with_a_comment() -> PathBuf {
     std::fs::create_dir_all(root.join("crates/salmong-core")).expect("fixture dirs are writable");
     std::fs::create_dir_all(root.join("scripts")).expect("fixture dirs are writable");
     std::fs::write(root.join("Cargo.toml"), "[workspace]\n").expect("fixture files are writable");
-    std::fs::write(root.join("scripts/planted.sh"), "# planted\n").expect("fixture files are writable");
+    std::fs::write(root.join("scripts/planted.sh"), "# planted\n")
+        .expect("fixture files are writable");
     let init = Command::new("git")
         .args(["init", "-q"])
         .current_dir(&root)
@@ -530,8 +532,9 @@ fn fixture_tree_with_a_comment() -> PathBuf {
 #[test]
 fn scan_reads_the_tree_named_at_run_time() {
     let root = fixture_tree_with_a_comment();
-    let output = scan_in_child(Some(&root.join("crates/salmong-core")));
+    let output = std::panic::catch_unwind(|| scan_in_child(Some(&root.join("crates/salmong-core"))));
     std::fs::remove_dir_all(&root).expect("the fixture tree is removable");
+    let output = output.unwrap_or_else(|panic| std::panic::resume_unwind(panic));
     let report = String::from_utf8_lossy(&output.stdout);
     assert!(!output.status.success(), "the scan missed the fixture comment: {report}");
     assert!(report.contains("scripts/planted.sh:1: comment"), "wrong report: {report}");
