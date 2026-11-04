@@ -14,7 +14,7 @@ UI look and maps are our own.
 | Numbers in core | Integers only | Native and WASM replays match bit for bit; Bend jobs need only `U32` |
 | Passenger state | Stateless: `want` shape only, no stored path | Network edits cannot leave stale plans; rerouting is a table swap |
 | Runtime router | Rust, in core, behind `Router` trait | Bend has no supported WASM target (section 5) |
-| Bend role | Offline scenario generation only: writes the versioned pack the game loads | Section 5, Q1. This narrows the README's "routing in Bend" |
+| Bend role | Offline scenario generation only: writes the versioned pack the game loads | Section 5, Q1 |
 | TLA+ role | `Boarding.tla` gates the boarding rules before they are coded | Rules are cheap to change in a spec, costly after the UI exists |
 | Passengers in ECS | Not entities. Instance data only | Keeps entity count under 200 |
 | Web backend | WebGPU only in MVP, no WebGL2 fallback (Q2) | Vertex instancing keeps a later fallback possible |
