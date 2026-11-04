@@ -1,6 +1,6 @@
 # salmong: design plan
 
-Status: reviewed 2026-11-05 (section 10). Design only, no code exists yet. Numbers marked *(tune)* are starting
+Status: reviewed 2026-11-05 (section 10). M0.1 adds an empty workspace; no game code exists yet. Numbers marked *(tune)* are starting
 values. All budgets are unmeasured targets until M0 or M5.
 
 salmong is a bus-route puzzle in the same genre as Mini Metro. It shares mechanics only: names, art, audio,
@@ -82,7 +82,7 @@ owns its segment `(from, to)`, so movement never depends on the route. Unloaded 
 ## 3. Workspace and modules
 
 ```text
-Cargo.toml               workspace, resolver 3, edition 2024; rust-toolchain.toml pins 1.97.1 and wasm32-unknown-unknown
+Cargo.toml               workspace, resolver 3, edition 2024; rust-toolchain.toml sets `stable` (1.99.1, section 7) and wasm32-unknown-unknown; rust-version 1.97.1
 crates/salmong-core/     no Bevy, no I/O, near-zero deps
 crates/salmong-game/     Bevy bin + lib, native and wasm
 crates/salmong-pack/     serde code for the scenario pack: parse_pack, write_pack. Native and wasm
@@ -255,7 +255,7 @@ Measurement:
 
 | Need | Box today | Action | Blocks |
 |---|---|---|---|
-| Rust | Debian 1.85.1, no rustup, no wasm std | Install rustup, pin 1.97.1 (Bevy 0.20.1 MSRV), add `wasm32-unknown-unknown` | M0 |
+| Rust | rustup 1.29.3; toolchain `stable` is 1.99.1, with `wasm32-unknown-unknown`; 1.97.1 not installed | No install. `rust-toolchain.toml` sets channel `stable`, because an exact `1.99.1` names a toolchain rustup would download. `scripts/check-toolchain.sh` fails if `stable` moves. `rust-version` stays 1.97.1 (Bevy 0.20.1 MSRV) | M0 |
 | trunk, wasm-bindgen-cli | missing | `cargo install trunk --locked` (0.22.1, needs Rust 1.96.1; replaces wasm-pack); wasm-bindgen-cli at the `Cargo.lock` version (now 0.2.130) | M0 |
 | wasm-opt, brotli | missing | Trunk may fetch `wasm-opt`; confirm at M0 | M5 |
 | TLC | `tla2tools.jar` 2.19 in a local tools dir, Java 17 | Set `TLA2TOOLS`; the jar belongs to another project, so copy or pin a hash | M1 |
@@ -269,7 +269,7 @@ laptop (Q3), `clang` needs clang 14+. M1 needs no new tools and precedes M2 to k
 
 | Unit | Work | Check | Where |
 |---|---|---|---|
-| M0.1 Rust | rustup, pin 1.97.1, wasm target | `rustc -V` is 1.97.1; empty lib passes `cargo check` for wasm32 | box |
+| M0.1 Rust | Use installed 1.99.1 (section 7), MSRV 1.97.1, wasm target | `scripts/check-toolchain.sh`: `rustc -V` is 1.99.1; empty lib passes `cargo check` for wasm32 | box |
 | M0.2 Blank web build | Trunk, wasm-bindgen-cli, blank Bevy 2D app | `trunk build --release` exits 0; wasm size recorded; `cargo tree -e features` shows whether `webgpu` overrides the `webgl2` that `2d` pulls in | box |
 | M0.3 WebGPU | Run the blank app on the reference laptop | App clears to a known colour and logs a WebGPU adapter; device recorded | gpu |
 | M1.1 Safety | `Boarding.tla`, safety and fault configs | TLC completes the safety config; each `Fault` gives a counterexample on its property | box |
