@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>salmong</title>
+    <!-- wasm-opt is off until M5.3: it is not installed, and Trunk would download it. -->
+    <link data-trunk rel="rust" href="../crates/salmong-game/Cargo.toml" data-bin="salmong-game" data-wasm-opt="0" />
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <p id="no-webgpu" hidden>salmong needs WebGPU. Open it in a browser that supports WebGPU.</p>
+    <script>
+      document.getElementById("no-webgpu").hidden = "gpu" in navigator;
+    </script>
+  </body>
+</html>
