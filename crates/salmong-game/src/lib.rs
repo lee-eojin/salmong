@@ -1,7 +1,6 @@
 use bevy::app::PluginGroupBuilder;
 use bevy::prelude::*;
 
-/// Salmon, #FA8072. M0.3 looks for this colour in the browser.
 const CLEAR_COLOUR: Color = Color::srgb_u8(0xFA, 0x80, 0x72);
 
 pub struct BlankPlugin;

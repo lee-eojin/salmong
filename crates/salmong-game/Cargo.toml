@@ -5,8 +5,6 @@ edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-# Not the `2d` feature: it adds `webgl2`, which plan Q2 rules out, and gilrs and
-# wayland, which need pkg-config, so a native workspace build fails without it.
 bevy = { version = "=0.20.1", default-features = false, features = [
     "2d_bevy_render",
     "bevy_winit",

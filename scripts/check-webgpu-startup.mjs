@@ -1,8 +1,4 @@
 #!/usr/bin/env node
-// Box half of M0.3: runs the release build in headless Chrome and checks what
-// the page does for each adapter outcome. It stops at the adapter. Without a
-// GPU, Chrome cannot back a WebGPU canvas, so the clear colour stays a laptop
-// check. See docs/m0.3-webgpu-check.md.
 import { spawn, spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { createServer } from "node:http";
@@ -44,7 +40,6 @@ const CASES = [
   },
   {
     name: "no WebGPU in the browser",
-    // `navigator.gpu` only exists in secure contexts, and this origin is not one.
     host: "salmong.test",
     flags: ["--disable-gpu", "--host-resolver-rules=MAP salmong.test 127.0.0.1"],
     done: (lines) => lines.includes(NO_ADAPTER_LINE),
