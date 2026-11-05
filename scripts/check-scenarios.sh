@@ -80,7 +80,7 @@ mutant() {
   bend "$dir/scenarios.bend" 1 1 >"$dir/one" 2>"$dir/one.err" || rc=$?
   if [[ $rc -ne 0 ]]; then one=rc$rc; elif ! cmp -s "$dir/one" "$work/rust.1"; then one=differs; fi
   rc=0
-  bend "$dir/scenarios.bend" 1 16 >"$dir/many" 2>/dev/null || rc=$?
+  bend "$dir/scenarios.bend" 1 16 >"$dir/many" 2>"$dir/many.err" || rc=$?
   if [[ $rc -ne 0 ]]; then many=rc$rc; elif ! cmp -s "$dir/many" assets/scenarios/pack.v1.json; then many=differs; fi
   [[ "$vec $one $many" == "$want_vec $want_one $want_many" ]] || fail "$name gave $vec $one $many, want $want_vec $want_one $want_many"
   echo "ok: $name $from -> $to: $vec $one $many"
@@ -99,7 +99,8 @@ mutant M11 "U32.is_lt(k, 3)" "U32.is_lt(k, 2)" pass same differs
 mutant M12 "8400" "8401" pass same differs
 mutant M13 '",\n"' '"\n"' pass same differs
 mutant M14 "64n" "63n" FAIL differs differs
-mutant M15 "256n" "1n" FAIL differs differs
+mutant M15 "256n" "1n" FAIL differs rc1
 mutant M16 "256n" "0n" FAIL rc1 rc1
+grep -qF "scenario 7 placed only 2 stations" "$work/M15/many.err" || fail "M15 stderr: $(cat "$work/M15/many.err")"
 grep -qF "scenario 0 placed only 0 stations" "$work/M16/one.err" || fail "M16 stderr: $(cat "$work/M16/one.err")"
 echo "ok: 16 mutants caught as designed"
