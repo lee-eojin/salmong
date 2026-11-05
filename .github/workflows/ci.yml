@@ -23,6 +23,7 @@ jobs:
       - run: cargo fmt --check
       - run: cargo clippy --locked --workspace -- -D warnings
       - run: cargo test --locked --workspace
+      - run: cargo check --locked -p salmong-core --target wasm32-unknown-unknown
       - run: cargo check --locked -p salmong-pack --target wasm32-unknown-unknown
       - run: scripts/check-no-comments.sh
       - run: scripts/check-toolchain.sh

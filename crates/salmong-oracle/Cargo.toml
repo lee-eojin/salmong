@@ -11,3 +11,6 @@ path = "src/main.rs"
 [dependencies]
 salmong-core = { path = "../salmong-core" }
 salmong-pack = { path = "../salmong-pack" }
+
+[dev-dependencies]
+proptest = "1"
