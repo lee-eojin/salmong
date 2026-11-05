@@ -23,10 +23,6 @@ mutant = "crates/salmong-core/src/sim.rs: replace + with * in Sim::set_route"
 reason = "The rev passed to the trial NetworkSnapshot only feeds validation and the trial is dropped, so its value is unobservable."
 
 [[allow]]
-mutant = "crates/salmong-core/src/sim.rs: replace == with != in Sim::next_alighter"
-reason = "At a station of the rider's own shape the routing cost is 0, so stay is false there and the rider alights through the second clause either way."
-
-[[allow]]
 mutant = "crates/salmong-oracle/src/bots.rs: replace <impl Bot for Idle>::act -> Vec<Command> with vec![]"
 reason = "Idle already returns an empty Vec, so vec![] is the same value."
 
