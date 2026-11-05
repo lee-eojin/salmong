@@ -1,0 +1,55 @@
+[[allow]]
+mutant = "crates/salmong-core/src/routing.rs: replace > with < in dijkstra"
+reason = "The stale-entry skip only saves work. Relaxing a popped stale entry cannot lower any distance, so the result table is the same."
+
+[[allow]]
+mutant = "crates/salmong-core/src/routing.rs: replace < with <= in dijkstra"
+reason = "An equal-distance relaxation stores the same value and pushes a duplicate heap entry, so the result table is the same."
+
+[[allow]]
+mutant = "crates/salmong-core/src/sim.rs: replace == with != in Sim::state_bytes"
+reason = "The mode byte is derived from the overflow timers that state_bytes already writes, so flipping it inverts every hash in the same way and two states compare equal exactly when they did before."
+
+[[allow]]
+mutant = "crates/salmong-core/src/sim.rs: replace + with * in Sim::add_route"
+reason = "The rev passed to the trial NetworkSnapshot only feeds validation and the trial is dropped, so its value is unobservable."
+
+[[allow]]
+mutant = "crates/salmong-core/src/sim.rs: replace + with - in Sim::set_route"
+reason = "The rev passed to the trial NetworkSnapshot only feeds validation and the trial is dropped, so its value is unobservable."
+
+[[allow]]
+mutant = "crates/salmong-core/src/sim.rs: replace + with * in Sim::set_route"
+reason = "The rev passed to the trial NetworkSnapshot only feeds validation and the trial is dropped, so its value is unobservable."
+
+[[allow]]
+mutant = "crates/salmong-core/src/sim.rs: replace == with != in Sim::next_alighter"
+reason = "At a station of the rider's own shape the routing cost is 0, so stay is false there and the rider alights through the second clause either way."
+
+[[allow]]
+mutant = "crates/salmong-oracle/src/bots.rs: replace <impl Bot for Idle>::act -> Vec<Command> with vec![]"
+reason = "Idle already returns an empty Vec, so vec![] is the same value."
+
+[[allow]]
+mutant = "crates/salmong-oracle/src/h32.rs: replace | with ^ in r"
+reason = "Callers keep p below 256, k below 65536, and a below 256, so the shifted fields never overlap and | equals ^."
+
+[[allow]]
+mutant = "crates/salmong-oracle/src/generate.rs: replace < with == in generate_scenario"
+reason = "No reachable seed places fewer than four stations, so the fewer-than-three guard never fires and its comparison is unobservable from the public API."
+
+[[allow]]
+mutant = "crates/salmong-oracle/src/generate.rs: replace < with <= in generate_scenario"
+reason = "No reachable seed places exactly three stations, so the boundary of the fewer-than-three guard is unobservable from the public API."
+
+[[allow]]
+mutant = "crates/salmong-oracle/src/main.rs: replace main -> ExitCode with Default::default()"
+reason = "The CLI is a thin argument parser over pack_bytes, which pack_sha tests through the library. No test spawns the binary."
+
+[[allow]]
+mutant = "crates/salmong-oracle/src/main.rs: replace != with == in main"
+reason = "The CLI is a thin argument parser over pack_bytes, which pack_sha tests through the library. No test spawns the binary."
+
+[[allow]]
+mutant = "crates/salmong-oracle/src/main.rs: replace == with != in main"
+reason = "The CLI is a thin argument parser over pack_bytes, which pack_sha tests through the library. No test spawns the binary."

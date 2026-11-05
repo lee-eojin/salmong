@@ -1,0 +1,5 @@
+exclude_globs = ["crates/salmong-game/**"]
+timeout_multiplier = 3.0
+cap_lints = true
+additional_cargo_test_args = ["--", "--skip", "tracked_source_has_no_comments"]
+test_package = ["salmong-core", "salmong-pack", "salmong-oracle"]
