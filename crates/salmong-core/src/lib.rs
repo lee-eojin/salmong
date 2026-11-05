@@ -1,6 +1,7 @@
 pub mod balance;
 pub mod ids;
 pub mod network;
+pub mod replay;
 pub mod rng;
 pub mod routing;
 pub mod scenario;
