@@ -13,8 +13,8 @@ salmong is in milestone M0, so there is no game to play yet. The app opens a bla
 | Part | Built with | State |
 |---|---|---|
 | Game client | Rust and [Bevy](https://bevy.org) 0.20.1, compiled to WASM and rendered with WebGPU | Blank app in `crates/salmong-game` |
-| Rules and routing | Rust in `crates/salmong-core`, with integer maths and no Bevy | Empty library, planned for M2 |
-| Scenarios | [Bend 2](https://github.com/bendlang/bend), run offline. Bend writes the scenario pack that the game loads, and it never runs in the browser | Planned for M4 |
+| Rules and routing | Rust in `crates/salmong-core`, with integer maths and no Bevy | Scenario types and validation; rules planned for M2 |
+| Scenarios | [Bend 2](https://github.com/bendlang/bend), run offline. Bend writes the scenario pack that the game loads, and it never runs in the browser | Pack reader and writer in `crates/salmong-pack`; Bend planned for M4 |
 | Rule checks | [TLA+](https://github.com/tlaplus/tlaplus). TLC checks the boarding rules before they are coded | Safety and liveness models in `spec/` |
 
 WebGPU is the only web backend in the MVP. A browser with no WebGPU adapter shows an error screen.
