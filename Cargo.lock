@@ -4451,6 +4451,9 @@ dependencies = [
 [[package]]
 name = "salmong-core"
 version = "0.1.0"
+dependencies = [
+ "salmong-core",
+]
 
 [[package]]
 name = "salmong-game"

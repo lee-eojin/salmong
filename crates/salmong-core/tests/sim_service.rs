@@ -9,7 +9,7 @@ fn scenario() -> Scenario {
         seed: 1,
         w: 64,
         h: 40,
-        ramp: vec![RampPoint { tick: 0, rate: 40 }],
+        ramp: vec![RampPoint { tick: 0, rate: 0 }],
         stations: [
             (12, 7, Shape::Circle),
             (30, 22, Shape::Triangle),
@@ -65,6 +65,7 @@ fn log(sim: &mut Sim, ticks: u64, mut before: impl FnMut(&mut Sim, u64)) -> Vec<
                     station: StationId(s),
                 } => Ev::D(t, b, p, s),
                 SimEvent::CommandRejected => panic!("unexpected reject at {t}"),
+                SimEvent::Spawned { .. } => panic!("unexpected spawn at {t}"),
             });
         }
     }

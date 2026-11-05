@@ -3,3 +3,9 @@ name = "salmong-core"
 version = "0.1.0"
 edition.workspace = true
 rust-version.workspace = true
+
+[features]
+fixtures = []
+
+[dev-dependencies]
+salmong-core = { path = ".", features = ["fixtures"] }
