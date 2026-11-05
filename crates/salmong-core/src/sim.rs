@@ -3,8 +3,10 @@ use std::collections::VecDeque;
 
 use crate::ids::{BusId, Dir, PassengerId, RouteId, StationId, Tick};
 use crate::network::{MAX_ROUTES, NetworkSnapshot};
+use crate::rng::Pcg32;
 use crate::routing::{DijkstraRouter, RouteTable, Router, board_bit};
-use crate::scenario::{Scenario, Shape};
+use crate::scenario::{RampPoint, Scenario, Shape};
+use crate::spawn::rate;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum BusMode {
@@ -40,6 +42,11 @@ pub enum Command {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SimEvent {
     CommandRejected,
+    Spawned {
+        passenger: PassengerId,
+        station: StationId,
+        want: Shape,
+    },
     Boarded {
         bus: BusId,
         passenger: PassengerId,
@@ -78,6 +85,10 @@ pub struct Sim {
     balance: Balance,
     shapes: Vec<Shape>,
     pos: Vec<(i64, i64)>,
+    weights: Vec<u64>,
+    ramp: Vec<RampPoint>,
+    acc: Vec<u64>,
+    rng: Pcg32,
     routes: Vec<Option<Vec<StationId>>>,
     rev: u64,
     table: RouteTable,
@@ -115,9 +126,13 @@ pub struct SimView {
 }
 
 impl Sim {
-    pub fn new(scenario: Scenario, _seed: u64, balance: Balance) -> Self {
+    pub fn new(scenario: Scenario, seed: u64, balance: Balance) -> Self {
         let start = scenario.stations.iter().filter(|s| s.at_tick == 0);
         let shapes = start.clone().map(|s| s.shape).collect::<Vec<_>>();
+        let weights = start
+            .clone()
+            .map(|s| u64::from(s.weight))
+            .collect::<Vec<_>>();
         let pos = start.map(|s| (i64::from(s.x), i64::from(s.y))).collect();
         let net = NetworkSnapshot::new(0, shapes.clone(), vec![]).expect("start stations");
         let table = DijkstraRouter.solve(&net);
@@ -126,6 +141,10 @@ impl Sim {
             balance,
             shapes,
             pos,
+            acc: vec![0; weights.len()],
+            weights,
+            ramp: scenario.ramp,
+            rng: Pcg32::new(seed, 54),
             routes: Vec::new(),
             rev: 0,
             table,
@@ -142,6 +161,7 @@ impl Sim {
         }
     }
 
+    #[cfg(feature = "fixtures")]
     pub fn place_passenger(&mut self, station: StationId, want: Shape) -> PassengerId {
         let id = PassengerId(self.next_passenger);
         self.next_passenger += 1;
@@ -159,6 +179,7 @@ impl Sim {
         if self.dirty {
             self.recompute_table();
         }
+        self.spawn(tick, events);
         self.move_buses(tick);
         let net = self.snapshot();
         for b in 0..self.buses.len() {
@@ -194,6 +215,46 @@ impl Sim {
         }
     }
 
+    fn alive(&self) -> usize {
+        let queued = self
+            .queues
+            .iter()
+            .flatten()
+            .map(VecDeque::len)
+            .sum::<usize>();
+        queued + self.buses.iter().map(|b| b.riders.len()).sum::<usize>()
+    }
+
+    fn spawn(&mut self, tick: Tick, events: &mut Vec<SimEvent>) {
+        let rate = rate(&self.ramp, tick.0);
+        let mut alive = self.alive();
+        for st in 0..self.shapes.len() {
+            if alive >= self.balance.max_alive {
+                return;
+            }
+            self.acc[st] += self.weights[st] * rate;
+            while self.acc[st] >= self.balance.spawn_unit && alive < self.balance.max_alive {
+                self.acc[st] -= self.balance.spawn_unit;
+                let own = self.shapes[st];
+                let eligible = Shape::ALL
+                    .into_iter()
+                    .filter(|&s| s != own && self.shapes.contains(&s))
+                    .collect::<Vec<_>>();
+                let want = eligible[self.rng.bounded(eligible.len() as u32) as usize];
+                let id = PassengerId(self.next_passenger);
+                self.next_passenger += 1;
+                let station = StationId(st as u16);
+                self.enqueue(station, Passenger { id, want });
+                alive += 1;
+                events.push(SimEvent::Spawned {
+                    passenger: id,
+                    station,
+                    want,
+                });
+            }
+        }
+    }
+
     fn snapshot(&self) -> NetworkSnapshot {
         NetworkSnapshot::new(self.rev, self.shapes.clone(), self.routes.clone())
             .expect("sim network")
@@ -223,6 +284,12 @@ impl Sim {
         u(&mut w, self.next_seq);
         u(&mut w, u64::from(self.next_passenger));
         u(&mut w, self.score);
+        let (rs, ri) = self.rng.state();
+        u(&mut w, rs);
+        u(&mut w, ri);
+        for a in &self.acc {
+            u(&mut w, *a);
+        }
         u(&mut w, self.routes.len() as u64);
         for r in &self.routes {
             let stops = r.as_deref().unwrap_or(&[]);

@@ -9,7 +9,7 @@ fn scenario() -> Scenario {
         seed: 1,
         w: 64,
         h: 40,
-        ramp: vec![RampPoint { tick: 0, rate: 40 }],
+        ramp: vec![RampPoint { tick: 0, rate: 0 }],
         stations: [
             (12, 7, Shape::Circle),
             (30, 22, Shape::Triangle),

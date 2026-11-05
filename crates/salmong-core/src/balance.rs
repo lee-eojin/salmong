@@ -4,6 +4,8 @@ pub struct Balance {
     pub start_buses: u16,
     pub capacity: usize,
     pub service_ticks: u32,
+    pub spawn_unit: u64,
+    pub max_alive: usize,
 }
 
 impl Balance {
@@ -13,6 +15,8 @@ impl Balance {
             start_buses: 4,
             capacity: 6,
             service_ticks: 8,
+            spawn_unit: 30_000,
+            max_alive: 5_000,
         }
     }
 }
