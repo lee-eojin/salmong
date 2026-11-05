@@ -42,6 +42,7 @@ const BY_EXTENSION: &[(&str, FileClass)] = &[
     ("sha256", FileClass::Exempt),
     ("tla", FileClass::Scan(Syntax::Tla)),
     ("toml", FileClass::Scan(Syntax::Toml)),
+    ("txt", FileClass::Exempt),
     ("yml", FileClass::Scan(Syntax::Yaml)),
 ];
 
