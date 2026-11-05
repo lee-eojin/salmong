@@ -60,3 +60,16 @@ fn back_reads_stops_in_reverse() {
     assert_eq!(net.stops(RouteId(0)), None);
     assert_eq!(net.rev(), 7);
 }
+
+#[test]
+fn next_stop_follows_direction() {
+    let net = NetworkSnapshot::new(0, three(), vec![stops(&[0, 1, 2])]).unwrap();
+    let r = RouteId(0);
+    assert_eq!(net.next_stop(r, Dir::Fwd, StationId(0)), Some(StationId(1)));
+    assert_eq!(net.next_stop(r, Dir::Fwd, StationId(2)), None);
+    assert_eq!(
+        net.next_stop(r, Dir::Back, StationId(2)),
+        Some(StationId(1))
+    );
+    assert_eq!(net.next_stop(r, Dir::Back, StationId(0)), None);
+}

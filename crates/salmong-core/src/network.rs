@@ -77,4 +77,11 @@ impl NetworkSnapshot {
         };
         stops.get(pos).copied()
     }
+
+    pub fn next_stop(&self, route: RouteId, dir: Dir, at: StationId) -> Option<StationId> {
+        let stops = self.stops(route)?;
+        let len = stops.len();
+        let pos = (0..len).find(|&i| self.stop(route, dir, i) == Some(at))?;
+        self.stop(route, dir, pos + 1)
+    }
 }
