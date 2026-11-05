@@ -223,7 +223,7 @@ the same invariants after every microstep, and `BoardingTrace.tla` checks traces
 
 ## 5. Bend usage
 
-**Fact check (read 2026-11-04, Bend source `4024f04`, nothing executed here).** Bend 2 runs in a browser as JavaScript on
+**Fact check (read 2026-11-04, Bend source `4024f04`, nothing executed here; M4.1 re-read the cited lines at tag `v2.0.39`, `a3efe8a`, see [the install review](m4.1-bend-install.md)).** Bend 2 runs in a browser as JavaScript on
 [one core](https://github.com/bendlang/bend/blob/4024f04/README.md#L239). No upstream Bend or HVM2 release targets WASM.
 - Bend 2 is [`bendlang/bend`](https://github.com/bendlang/bend) ([v2.0.39](https://github.com/bendlang/bend/releases/tag/v2.0.39)); crates.io has the old [`Bend1`](https://github.com/HigherOrderCO/Bend1) line, which [does not carry over](https://github.com/bendlang/bend/blob/4024f04/README.md#L223).
 - Targets are [C, Metal, CUDA and JavaScript](https://github.com/bendlang/bend/blob/4024f04/README.md#L238). [PR #866](https://github.com/bendlang/bend/pull/866) (WASM) closed unmerged 2026-09-24; [#1352](https://github.com/bendlang/bend/issues/1352), [#1598](https://github.com/bendlang/bend/issues/1598) are open. [HVM2](https://github.com/HigherOrderCO/HVM2/blob/6542760/README.md): C and CUDA only.
@@ -270,7 +270,7 @@ station k<64   first a in 0..255 with x = pick(2,w-3,r(1,k,a)), y = pick(2,h-3,r
   which keeps serde out of core, rejects unknown fields and runs `Scenario::validate` per entry. `Sim::new` takes one `Scenario`.
 - **Acceptance check (M4.4).** For seeds 1 to 3 and counts 1, 16, 64, `bend bend/scenarios.bend <seed> <count>` and `salmong-oracle
   pack <seed> <count>` must print `cmp`-equal bytes that pass `Scenario::validate`; seed 1 count 16 must match `pack.v1.sha256`.
-  Equal bytes prove agreement only, so Rust mutations (wrong coordinate, hash index, ramp value) must each fail. CLI unverified until M4.1.
+  Equal bytes prove agreement only, so Rust mutations (wrong coordinate, hash index, ramp value) must each fail. CLI verified at M4.1: `IO.args()` starts with the program, so `<seed>` is index 1 and `<count>` index 2.
 
 ## 6. Web 60 fps budget
 
@@ -311,7 +311,7 @@ Measurement:
 | trunk, wasm-bindgen-cli | trunk 0.22.1, wasm-bindgen-cli 0.2.130 | Keep wasm-bindgen-cli at the `Cargo.lock` version; trunk replaces wasm-pack | M0 |
 | wasm-opt, brotli | missing | M0.2 confirmed Trunk runs `wasm-opt` in release and would download it. `web/index.html` sets `data-wasm-opt="0"` until M5.3 | M5 |
 | TLC | `tla2tools.jar` 2.19 in a local tools dir, Java 17 | Set `TLA2TOOLS` or provide `tlc` on PATH; `scripts/check-boarding.sh` pins the TLC build by its exact version line | M1 |
-| Bend 2 | missing; clang also missing (gcc is [not a target](https://github.com/bendlang/bend/blob/4024f04/WONTFIX.txt#L27)); Bun 1.4.2, Node 24 | Review `install.sh` before running, pin 2.0.39, set `BEND_NO_TELEMETRY=1`, use the JS target; clang only for M4.5 | M4 |
+| Bend 2 | 2.0.39 installed at M4.1 by `scripts/install-bend.sh` from the release archive pinned by sha256; clang still missing (gcc is [not a target](https://github.com/bendlang/bend/blob/4024f04/WONTFIX.txt#L27)); Bun 1.4.2, Node 24 | Upstream `install.sh` was reviewed but not run, as it cannot pin. The shim sets `BEND_NO_TELEMETRY=1`; JS target only; clang only for M4.5 | M4 |
 | GPU, browser | no `/dev/dri`; Chrome 156 gets a SwiftShader adapter here but cannot show a WebGPU canvas, so this box cannot validate rendering or 60 fps | Ordinary laptop with Chrome for perf and WebGPU checks | M0, M5 |
 
 ## 8. Milestones
