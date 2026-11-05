@@ -212,3 +212,14 @@ fn passenger_boards_only_a_bus_in_its_board_mask() {
     use Ev::*;
     assert_eq!(got, vec![B(7, 1, 0, 1), D(24, 1, 0, 2)]);
 }
+
+#[test]
+fn rider_stays_aboard_through_a_station_of_another_shape() {
+    let mut sim = Sim::new(scenario(), 0, Balance::mvp());
+    add(&mut sim, &[0, 1, 2]);
+    place(&mut sim, 0, Shape::Square, 1);
+    let got = log(&mut sim, 80, |_, _| {});
+    assert!(!got.iter().any(|e| matches!(e, Ev::A(..))), "{got:?}");
+    assert!(matches!(got.last(), Some(Ev::D(_, 0, 0, 2))), "{got:?}");
+    assert_eq!(sim.view().score, 1);
+}
