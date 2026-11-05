@@ -1,0 +1,316 @@
+assoc salmong_core::ids::Dir::ALL
+assoc salmong_core::scenario::Shape::ALL
+const salmong_core::network::MAX_ROUTES
+const salmong_core::routing::HOP
+const salmong_core::routing::INF
+const salmong_core::routing::TRANSFER
+const salmong_core::scenario::MAX_STATIONS
+const salmong_core::scenario::MIN_SPACING_SQ
+const salmong_core::scenario::START_STATIONS
+const salmong_core::scenario::STAR_FROM_TICK
+enum salmong_core::ids::Dir
+enum salmong_core::network::NetworkError
+enum salmong_core::scenario::ScenarioError
+enum salmong_core::scenario::Shape
+enum salmong_core::sim::BusMode
+enum salmong_core::sim::BusPhase
+enum salmong_core::sim::Command
+enum salmong_core::sim::SimEvent
+enum salmong_core::sim::SimMode
+field salmong_core::balance::Balance::capacity
+field salmong_core::balance::Balance::max_alive
+field salmong_core::balance::Balance::overflow_limit
+field salmong_core::balance::Balance::service_ticks
+field salmong_core::balance::Balance::spawn_unit
+field salmong_core::balance::Balance::start_buses
+field salmong_core::balance::Balance::station_capacity
+field salmong_core::balance::Balance::travel_ticks
+field salmong_core::ids::BusId::0
+field salmong_core::ids::PassengerId::0
+field salmong_core::ids::RouteId::0
+field salmong_core::ids::StationId::0
+field salmong_core::ids::Tick::0
+field salmong_core::scenario::RampPoint::rate
+field salmong_core::scenario::RampPoint::tick
+field salmong_core::scenario::Scenario::h
+field salmong_core::scenario::Scenario::id
+field salmong_core::scenario::Scenario::ramp
+field salmong_core::scenario::Scenario::seed
+field salmong_core::scenario::Scenario::stations
+field salmong_core::scenario::Scenario::w
+field salmong_core::scenario::StationSpec::at_tick
+field salmong_core::scenario::StationSpec::shape
+field salmong_core::scenario::StationSpec::weight
+field salmong_core::scenario::StationSpec::x
+field salmong_core::scenario::StationSpec::y
+field salmong_core::sim::BusView::at
+field salmong_core::sim::BusView::id
+field salmong_core::sim::BusView::last_arrival
+field salmong_core::sim::BusView::mode
+field salmong_core::sim::BusView::phase
+field salmong_core::sim::BusView::riders
+field salmong_core::sim::Passenger::id
+field salmong_core::sim::Passenger::want
+field salmong_core::sim::SimView::buses
+field salmong_core::sim::SimView::free_buses
+field salmong_core::sim::SimView::mode
+field salmong_core::sim::SimView::overflow
+field salmong_core::sim::SimView::queued
+field salmong_core::sim::SimView::queues
+field salmong_core::sim::SimView::route_count
+field salmong_core::sim::SimView::score
+field salmong_core::sim::SimView::table_rev
+field salmong_core::sim::SimView::tick
+fn salmong_core::routing::board_bit(route, dir)
+fn salmong_core::spawn::rate(ramp, t)
+impl Clone for salmong_core::balance::Balance
+impl Clone for salmong_core::ids::BusId
+impl Clone for salmong_core::ids::Dir
+impl Clone for salmong_core::ids::PassengerId
+impl Clone for salmong_core::ids::RouteId
+impl Clone for salmong_core::ids::StationId
+impl Clone for salmong_core::ids::Tick
+impl Clone for salmong_core::network::NetworkError
+impl Clone for salmong_core::network::NetworkSnapshot
+impl Clone for salmong_core::rng::Pcg32
+impl Clone for salmong_core::routing::RouteTable
+impl Clone for salmong_core::routing::ShapeTable
+impl Clone for salmong_core::scenario::RampPoint
+impl Clone for salmong_core::scenario::Scenario
+impl Clone for salmong_core::scenario::ScenarioError
+impl Clone for salmong_core::scenario::Shape
+impl Clone for salmong_core::scenario::StationSpec
+impl Clone for salmong_core::sim::BusMode
+impl Clone for salmong_core::sim::BusPhase
+impl Clone for salmong_core::sim::BusView
+impl Clone for salmong_core::sim::Command
+impl Clone for salmong_core::sim::Passenger
+impl Clone for salmong_core::sim::SimEvent
+impl Clone for salmong_core::sim::SimMode
+impl Clone for salmong_core::sim::SimView
+impl Copy for salmong_core::balance::Balance
+impl Copy for salmong_core::ids::BusId
+impl Copy for salmong_core::ids::Dir
+impl Copy for salmong_core::ids::PassengerId
+impl Copy for salmong_core::ids::RouteId
+impl Copy for salmong_core::ids::StationId
+impl Copy for salmong_core::ids::Tick
+impl Copy for salmong_core::rng::Pcg32
+impl Copy for salmong_core::scenario::RampPoint
+impl Copy for salmong_core::scenario::ScenarioError
+impl Copy for salmong_core::scenario::Shape
+impl Copy for salmong_core::scenario::StationSpec
+impl Copy for salmong_core::sim::Passenger
+impl Copy for salmong_core::sim::SimMode
+impl Debug for salmong_core::balance::Balance
+impl Debug for salmong_core::ids::BusId
+impl Debug for salmong_core::ids::Dir
+impl Debug for salmong_core::ids::PassengerId
+impl Debug for salmong_core::ids::RouteId
+impl Debug for salmong_core::ids::StationId
+impl Debug for salmong_core::ids::Tick
+impl Debug for salmong_core::network::NetworkError
+impl Debug for salmong_core::network::NetworkSnapshot
+impl Debug for salmong_core::rng::Pcg32
+impl Debug for salmong_core::routing::RouteTable
+impl Debug for salmong_core::routing::ShapeTable
+impl Debug for salmong_core::scenario::RampPoint
+impl Debug for salmong_core::scenario::Scenario
+impl Debug for salmong_core::scenario::ScenarioError
+impl Debug for salmong_core::scenario::Shape
+impl Debug for salmong_core::scenario::StationSpec
+impl Debug for salmong_core::sim::BusMode
+impl Debug for salmong_core::sim::BusPhase
+impl Debug for salmong_core::sim::BusView
+impl Debug for salmong_core::sim::Command
+impl Debug for salmong_core::sim::Passenger
+impl Debug for salmong_core::sim::SimEvent
+impl Debug for salmong_core::sim::SimMode
+impl Debug for salmong_core::sim::SimView
+impl Eq for salmong_core::balance::Balance
+impl Eq for salmong_core::ids::BusId
+impl Eq for salmong_core::ids::Dir
+impl Eq for salmong_core::ids::PassengerId
+impl Eq for salmong_core::ids::RouteId
+impl Eq for salmong_core::ids::StationId
+impl Eq for salmong_core::ids::Tick
+impl Eq for salmong_core::network::NetworkError
+impl Eq for salmong_core::network::NetworkSnapshot
+impl Eq for salmong_core::rng::Pcg32
+impl Eq for salmong_core::routing::RouteTable
+impl Eq for salmong_core::routing::ShapeTable
+impl Eq for salmong_core::scenario::RampPoint
+impl Eq for salmong_core::scenario::Scenario
+impl Eq for salmong_core::scenario::ScenarioError
+impl Eq for salmong_core::scenario::Shape
+impl Eq for salmong_core::scenario::StationSpec
+impl Eq for salmong_core::sim::BusMode
+impl Eq for salmong_core::sim::BusPhase
+impl Eq for salmong_core::sim::BusView
+impl Eq for salmong_core::sim::Command
+impl Eq for salmong_core::sim::Passenger
+impl Eq for salmong_core::sim::SimEvent
+impl Eq for salmong_core::sim::SimMode
+impl Eq for salmong_core::sim::SimView
+impl Ord for salmong_core::ids::BusId
+impl Ord for salmong_core::ids::Dir
+impl Ord for salmong_core::ids::PassengerId
+impl Ord for salmong_core::ids::RouteId
+impl Ord for salmong_core::ids::StationId
+impl Ord for salmong_core::ids::Tick
+impl PartialEq for salmong_core::balance::Balance
+impl PartialEq for salmong_core::ids::BusId
+impl PartialEq for salmong_core::ids::Dir
+impl PartialEq for salmong_core::ids::PassengerId
+impl PartialEq for salmong_core::ids::RouteId
+impl PartialEq for salmong_core::ids::StationId
+impl PartialEq for salmong_core::ids::Tick
+impl PartialEq for salmong_core::network::NetworkError
+impl PartialEq for salmong_core::network::NetworkSnapshot
+impl PartialEq for salmong_core::rng::Pcg32
+impl PartialEq for salmong_core::routing::RouteTable
+impl PartialEq for salmong_core::routing::ShapeTable
+impl PartialEq for salmong_core::scenario::RampPoint
+impl PartialEq for salmong_core::scenario::Scenario
+impl PartialEq for salmong_core::scenario::ScenarioError
+impl PartialEq for salmong_core::scenario::Shape
+impl PartialEq for salmong_core::scenario::StationSpec
+impl PartialEq for salmong_core::sim::BusMode
+impl PartialEq for salmong_core::sim::BusPhase
+impl PartialEq for salmong_core::sim::BusView
+impl PartialEq for salmong_core::sim::Command
+impl PartialEq for salmong_core::sim::Passenger
+impl PartialEq for salmong_core::sim::SimEvent
+impl PartialEq for salmong_core::sim::SimMode
+impl PartialEq for salmong_core::sim::SimView
+impl PartialOrd for salmong_core::ids::BusId
+impl PartialOrd for salmong_core::ids::Dir
+impl PartialOrd for salmong_core::ids::PassengerId
+impl PartialOrd for salmong_core::ids::RouteId
+impl PartialOrd for salmong_core::ids::StationId
+impl PartialOrd for salmong_core::ids::Tick
+impl Router for salmong_core::routing::DijkstraRouter
+impl StructuralPartialEq for salmong_core::balance::Balance
+impl StructuralPartialEq for salmong_core::ids::BusId
+impl StructuralPartialEq for salmong_core::ids::Dir
+impl StructuralPartialEq for salmong_core::ids::PassengerId
+impl StructuralPartialEq for salmong_core::ids::RouteId
+impl StructuralPartialEq for salmong_core::ids::StationId
+impl StructuralPartialEq for salmong_core::ids::Tick
+impl StructuralPartialEq for salmong_core::network::NetworkError
+impl StructuralPartialEq for salmong_core::network::NetworkSnapshot
+impl StructuralPartialEq for salmong_core::rng::Pcg32
+impl StructuralPartialEq for salmong_core::routing::RouteTable
+impl StructuralPartialEq for salmong_core::routing::ShapeTable
+impl StructuralPartialEq for salmong_core::scenario::RampPoint
+impl StructuralPartialEq for salmong_core::scenario::Scenario
+impl StructuralPartialEq for salmong_core::scenario::ScenarioError
+impl StructuralPartialEq for salmong_core::scenario::Shape
+impl StructuralPartialEq for salmong_core::scenario::StationSpec
+impl StructuralPartialEq for salmong_core::sim::BusMode
+impl StructuralPartialEq for salmong_core::sim::BusPhase
+impl StructuralPartialEq for salmong_core::sim::BusView
+impl StructuralPartialEq for salmong_core::sim::Command
+impl StructuralPartialEq for salmong_core::sim::Passenger
+impl StructuralPartialEq for salmong_core::sim::SimEvent
+impl StructuralPartialEq for salmong_core::sim::SimMode
+impl StructuralPartialEq for salmong_core::sim::SimView
+method salmong_core::balance::Balance::mvp()
+method salmong_core::ids::Dir::index(self)
+method salmong_core::ids::Dir::reverse(self)
+method salmong_core::network::NetworkSnapshot::new(rev, shapes, routes)
+method salmong_core::network::NetworkSnapshot::next_stop(self, route, dir, at)
+method salmong_core::network::NetworkSnapshot::rev(self)
+method salmong_core::network::NetworkSnapshot::route_slots(self)
+method salmong_core::network::NetworkSnapshot::shapes(self)
+method salmong_core::network::NetworkSnapshot::stop(self, route, dir, i)
+method salmong_core::network::NetworkSnapshot::stops(self, route)
+method salmong_core::rng::Pcg32::bounded(self, bound)
+method salmong_core::rng::Pcg32::new(seed, stream)
+method salmong_core::rng::Pcg32::next_u32(self)
+method salmong_core::rng::Pcg32::state(self)
+method salmong_core::routing::RouteTable::board(self, want, st)
+method salmong_core::routing::RouteTable::cost(self, want, st)
+method salmong_core::routing::RouteTable::new(rev, shapes)
+method salmong_core::routing::RouteTable::rev(self)
+method salmong_core::routing::RouteTable::ride(self, want, route, dir)
+method salmong_core::routing::RouteTable::stay(self, want, route, dir)
+method salmong_core::routing::ShapeTable::derive(net, cost, ride)
+method salmong_core::scenario::Scenario::validate(self)
+method salmong_core::scenario::Shape::from_index(index)
+method salmong_core::scenario::Shape::index(self)
+method salmong_core::sim::Sim::new(scenario, seed, balance)
+method salmong_core::sim::Sim::queue(self, cmd)
+method salmong_core::sim::Sim::state_bytes(self)
+method salmong_core::sim::Sim::state_hash(self)
+method salmong_core::sim::Sim::step(self, events)
+method salmong_core::sim::Sim::view(self)
+mod salmong_core
+mod salmong_core::balance
+mod salmong_core::ids
+mod salmong_core::network
+mod salmong_core::rng
+mod salmong_core::routing
+mod salmong_core::scenario
+mod salmong_core::sim
+mod salmong_core::spawn
+struct salmong_core::balance::Balance
+struct salmong_core::ids::BusId
+struct salmong_core::ids::PassengerId
+struct salmong_core::ids::RouteId
+struct salmong_core::ids::StationId
+struct salmong_core::ids::Tick
+struct salmong_core::network::NetworkSnapshot
+struct salmong_core::rng::Pcg32
+struct salmong_core::routing::DijkstraRouter
+struct salmong_core::routing::RouteTable
+struct salmong_core::routing::ShapeTable
+struct salmong_core::scenario::RampPoint
+struct salmong_core::scenario::Scenario
+struct salmong_core::scenario::StationSpec
+struct salmong_core::sim::BusView
+struct salmong_core::sim::Passenger
+struct salmong_core::sim::Sim
+struct salmong_core::sim::SimView
+trait salmong_core::routing::Router
+trait_item salmong_core::routing::Router::solve
+variant salmong_core::ids::Dir::Back
+variant salmong_core::ids::Dir::Fwd
+variant salmong_core::network::NetworkError::RepeatedStop
+variant salmong_core::network::NetworkError::RouteTooShort
+variant salmong_core::network::NetworkError::TooManyRoutes
+variant salmong_core::network::NetworkError::TooManyStations
+variant salmong_core::network::NetworkError::UnknownStation
+variant salmong_core::scenario::ScenarioError::EarlyStar
+variant salmong_core::scenario::ScenarioError::EmptyRamp
+variant salmong_core::scenario::ScenarioError::OutOfBounds
+variant salmong_core::scenario::ScenarioError::RampFalls
+variant salmong_core::scenario::ScenarioError::RampNotAscending
+variant salmong_core::scenario::ScenarioError::RampNotFromZero
+variant salmong_core::scenario::ScenarioError::SpawnOrder
+variant salmong_core::scenario::ScenarioError::StartCount
+variant salmong_core::scenario::ScenarioError::StartShapes
+variant salmong_core::scenario::ScenarioError::TooClose
+variant salmong_core::scenario::ScenarioError::TooFewStations
+variant salmong_core::scenario::ScenarioError::TooManyStations
+variant salmong_core::scenario::Shape::Circle
+variant salmong_core::scenario::Shape::Square
+variant salmong_core::scenario::Shape::Star
+variant salmong_core::scenario::Shape::Triangle
+variant salmong_core::sim::BusMode::Active
+variant salmong_core::sim::BusMode::Retiring
+variant salmong_core::sim::BusPhase::Alighting
+variant salmong_core::sim::BusPhase::Boarding
+variant salmong_core::sim::BusPhase::Moving
+variant salmong_core::sim::Command::AddRoute
+variant salmong_core::sim::Command::EditRoute
+variant salmong_core::sim::Command::RemoveRoute
+variant salmong_core::sim::SimEvent::Alighted
+variant salmong_core::sim::SimEvent::Boarded
+variant salmong_core::sim::SimEvent::CommandRejected
+variant salmong_core::sim::SimEvent::Delivered
+variant salmong_core::sim::SimEvent::GameOver
+variant salmong_core::sim::SimEvent::OverflowStarted
+variant salmong_core::sim::SimEvent::Spawned
+variant salmong_core::sim::SimMode::Over
+variant salmong_core::sim::SimMode::Running

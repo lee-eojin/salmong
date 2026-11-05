@@ -1,0 +1,26 @@
+enum salmong_pack::PackError
+field salmong_pack::Pack::generation
+field salmong_pack::Pack::pack_seed
+field salmong_pack::Pack::scenarios
+fn salmong_pack::parse_pack(bytes)
+fn salmong_pack::write_pack(pack)
+impl Clone for salmong_pack::Pack
+impl Clone for salmong_pack::PackError
+impl Debug for salmong_pack::Pack
+impl Debug for salmong_pack::PackError
+impl Eq for salmong_pack::Pack
+impl Eq for salmong_pack::PackError
+impl PartialEq for salmong_pack::Pack
+impl PartialEq for salmong_pack::PackError
+impl StructuralPartialEq for salmong_pack::Pack
+impl StructuralPartialEq for salmong_pack::PackError
+mod salmong_pack
+struct salmong_pack::Pack
+variant salmong_pack::PackError::Json
+variant salmong_pack::PackError::NoScenarios
+variant salmong_pack::PackError::NonCanonical
+variant salmong_pack::PackError::Scenario
+variant salmong_pack::PackError::ScenarioId
+variant salmong_pack::PackError::Schema
+variant salmong_pack::PackError::UnknownShape
+variant salmong_pack::PackError::Version

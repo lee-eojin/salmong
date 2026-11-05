@@ -27,3 +27,5 @@ jobs:
       - run: cargo check --locked -p salmong-pack --target wasm32-unknown-unknown
       - run: scripts/check-no-comments.sh
       - run: scripts/check-toolchain.sh
+      - run: scripts/check-deps.sh
+      - run: scripts/check-public-api.sh

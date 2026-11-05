@@ -1,0 +1,4 @@
+fn salmong_game::plugins()
+impl Plugin for salmong_game::BlankPlugin
+mod salmong_game
+struct salmong_game::BlankPlugin
