@@ -191,3 +191,53 @@ fn refused_replay_does_not_advance_hashes() {
     replay.header.seed = 99;
     assert!(run(scenario, &PACK, 0, Balance::mvp(), &replay, 2).is_err());
 }
+
+#[test]
+fn hash_sequence_applies_body_commands_on_their_tick() {
+    let early = vec![(
+        Tick(0),
+        Command::AddRoute {
+            stops: vec![StationId(0), StationId(1)],
+        },
+    )];
+    let late = vec![(
+        Tick(1),
+        Command::AddRoute {
+            stops: vec![StationId(0), StationId(1)],
+        },
+    )];
+    let none = hash_sequence(empty3_scenario(), 0, Balance::mvp(), &[], 2);
+    let on_zero = hash_sequence(empty3_scenario(), 0, Balance::mvp(), &early, 2);
+    let on_one = hash_sequence(empty3_scenario(), 0, Balance::mvp(), &late, 2);
+    assert_ne!(on_zero[1], none[1]);
+    assert_eq!(on_one[1], none[1]);
+    assert_ne!(on_one[2], none[2]);
+    assert_ne!(on_zero, on_one);
+}
+
+#[test]
+fn hash_sequence_applies_every_command_on_the_same_tick() {
+    let one = vec![(
+        Tick(0),
+        Command::AddRoute {
+            stops: vec![StationId(0), StationId(1)],
+        },
+    )];
+    let two = vec![
+        (
+            Tick(0),
+            Command::AddRoute {
+                stops: vec![StationId(0), StationId(1)],
+            },
+        ),
+        (
+            Tick(0),
+            Command::AddRoute {
+                stops: vec![StationId(1), StationId(2)],
+            },
+        ),
+    ];
+    let a = hash_sequence(empty3_scenario(), 0, Balance::mvp(), &one, 1);
+    let b = hash_sequence(empty3_scenario(), 0, Balance::mvp(), &two, 1);
+    assert_ne!(a, b);
+}
