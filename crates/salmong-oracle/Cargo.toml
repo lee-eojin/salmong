@@ -1,0 +1,13 @@
+[package]
+name = "salmong-oracle"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "salmong-oracle"
+path = "src/main.rs"
+
+[dependencies]
+salmong-core = { path = "../salmong-core" }
+salmong-pack = { path = "../salmong-pack" }
