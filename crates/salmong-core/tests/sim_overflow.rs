@@ -154,6 +154,40 @@ fn state_hash_covers_overflow_and_mode() {
     assert_ne!(c.state_hash(), d.state_hash());
 }
 
+#[test]
+fn state_hash_covers_overflow_alone() {
+    let mut a = placed(9);
+    let balance = Balance {
+        station_capacity: 9,
+        ..Balance::mvp()
+    };
+    let mut b = Sim::new(scenario(0), 0, balance);
+    for _ in 0..9 {
+        b.place_passenger(StationId(0), Shape::Triangle);
+    }
+    step(&mut a);
+    step(&mut b);
+    assert_eq!(a.view().overflow, vec![1, 0, 0]);
+    assert_eq!(b.view().overflow, vec![0, 0, 0]);
+    assert_ne!(a.state_hash(), b.state_hash());
+}
+
+#[test]
+fn microstep_checks_cover_every_phase_and_bus() {
+    let mut sim = placed(9);
+    sim.queue(Command::AddRoute {
+        stops: vec![StationId(0), StationId(1)],
+    });
+    sim.queue(Command::AddRoute {
+        stops: vec![StationId(1), StationId(2)],
+    });
+    for _ in 0..3 {
+        let mut calls = 0;
+        sim.step_observed(&mut Vec::new(), |_, _| calls += 1);
+        assert_eq!(calls, 6 + 2 * 2);
+    }
+}
+
 fn random_command(rng: &mut Pcg32) -> Command {
     let mut stops = vec![StationId(0), StationId(1), StationId(2)];
     for i in (1..3).rev() {
