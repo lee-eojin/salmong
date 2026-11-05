@@ -9,6 +9,7 @@ use crate::scenario::{Scenario, Shape};
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum BusMode {
     Active { route: RouteId, dir: Dir },
+    Retiring,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -24,7 +25,16 @@ pub enum BusPhase {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Command {
-    AddRoute { stops: Vec<StationId> },
+    AddRoute {
+        stops: Vec<StationId>,
+    },
+    EditRoute {
+        route: RouteId,
+        stops: Vec<StationId>,
+    },
+    RemoveRoute {
+        route: RouteId,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -67,6 +77,7 @@ struct Bus {
 pub struct Sim {
     balance: Balance,
     shapes: Vec<Shape>,
+    pos: Vec<(i64, i64)>,
     routes: Vec<Option<Vec<StationId>>>,
     rev: u64,
     table: RouteTable,
@@ -85,8 +96,7 @@ pub struct Sim {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BusView {
     pub id: BusId,
-    pub route: RouteId,
-    pub dir: Dir,
+    pub mode: BusMode,
     pub phase: BusPhase,
     pub at: StationId,
     pub last_arrival: Option<(StationId, Tick)>,
@@ -106,18 +116,16 @@ pub struct SimView {
 
 impl Sim {
     pub fn new(scenario: Scenario, _seed: u64, balance: Balance) -> Self {
-        let shapes = scenario
-            .stations
-            .iter()
-            .filter(|s| s.at_tick == 0)
-            .map(|s| s.shape)
-            .collect::<Vec<_>>();
+        let start = scenario.stations.iter().filter(|s| s.at_tick == 0);
+        let shapes = start.clone().map(|s| s.shape).collect::<Vec<_>>();
+        let pos = start.map(|s| (i64::from(s.x), i64::from(s.y))).collect();
         let net = NetworkSnapshot::new(0, shapes.clone(), vec![]).expect("start stations");
         let table = DijkstraRouter.solve(&net);
         let queues = shapes.iter().map(|_| Default::default()).collect();
         Self {
             balance,
             shapes,
+            pos,
             routes: Vec::new(),
             rev: 0,
             table,
@@ -152,8 +160,14 @@ impl Sim {
             self.recompute_table();
         }
         self.move_buses(tick);
-        self.alight_buses(events);
-        self.board_buses(events);
+        let net = self.snapshot();
+        for b in 0..self.buses.len() {
+            self.alight_bus(&net, b, events);
+        }
+        for b in 0..self.buses.len() {
+            self.board_bus(&net, b, events);
+        }
+        self.park_retired();
         self.tick = Tick(tick.0 + 1);
     }
 
@@ -168,17 +182,13 @@ impl Sim {
             buses: self
                 .buses
                 .iter()
-                .map(|b| {
-                    let BusMode::Active { route, dir } = b.mode;
-                    BusView {
-                        id: b.id,
-                        route,
-                        dir,
-                        phase: b.phase.clone(),
-                        at: b.at,
-                        last_arrival: b.last_arrival,
-                        riders: b.riders.iter().map(|p| p.id).collect(),
-                    }
+                .map(|b| BusView {
+                    id: b.id,
+                    mode: b.mode.clone(),
+                    phase: b.phase.clone(),
+                    at: b.at,
+                    last_arrival: b.last_arrival,
+                    riders: b.riders.iter().map(|p| p.id).collect(),
                 })
                 .collect(),
         }
@@ -192,17 +202,112 @@ impl Sim {
     fn recompute_table(&mut self) {
         self.table = DijkstraRouter.solve(&self.snapshot());
         self.dirty = false;
+        let service = self.balance.service_ticks;
+        for bus in &mut self.buses {
+            let stopped = matches!(bus.phase, BusPhase::Alighting | BusPhase::Boarding);
+            if stopped && matches!(bus.mode, BusMode::Active { .. }) {
+                bus.phase = BusPhase::Alighting;
+                bus.timer = service;
+            }
+        }
+    }
+
+    pub fn state_bytes(&self) -> Vec<u8> {
+        let mut w = Vec::new();
+        let u = |w: &mut Vec<u8>, v: u64| w.extend_from_slice(&v.to_le_bytes());
+        u(&mut w, self.tick.0);
+        u(&mut w, self.rev);
+        u(&mut w, u64::from(self.dirty));
+        u(&mut w, u64::from(self.free_buses));
+        u(&mut w, u64::from(self.next_bus_id));
+        u(&mut w, self.next_seq);
+        u(&mut w, u64::from(self.next_passenger));
+        u(&mut w, self.score);
+        u(&mut w, self.routes.len() as u64);
+        for r in &self.routes {
+            let stops = r.as_deref().unwrap_or(&[]);
+            u(&mut w, u64::from(r.is_some()));
+            u(&mut w, stops.len() as u64);
+            for s in stops {
+                u(&mut w, u64::from(s.0));
+            }
+        }
+        u(&mut w, self.buses.len() as u64);
+        for b in &self.buses {
+            u(&mut w, u64::from(b.id.0));
+            match b.mode {
+                BusMode::Active { route, dir } => {
+                    u(&mut w, 1);
+                    u(&mut w, u64::from(route.0));
+                    u(&mut w, dir.index() as u64);
+                }
+                BusMode::Retiring => u(&mut w, 2),
+            }
+            match b.phase {
+                BusPhase::Moving { from, to, progress } => {
+                    u(&mut w, 1);
+                    u(&mut w, u64::from(from.0));
+                    u(&mut w, u64::from(to.0));
+                    u(&mut w, u64::from(progress));
+                }
+                BusPhase::Alighting => u(&mut w, 2),
+                BusPhase::Boarding => u(&mut w, 3),
+            }
+            u(&mut w, u64::from(b.at.0));
+            let (st, t) = b
+                .last_arrival
+                .map_or((u64::MAX, u64::MAX), |(s, t)| (u64::from(s.0), t.0));
+            u(&mut w, st);
+            u(&mut w, t);
+            u(&mut w, u64::from(b.timer));
+            u(&mut w, b.riders.len() as u64);
+            for p in &b.riders {
+                u(&mut w, u64::from(p.id.0));
+                u(&mut w, u64::from(p.want.index()));
+            }
+        }
+        for q in self.queues.iter().flatten() {
+            u(&mut w, q.len() as u64);
+            for (seq, p) in q {
+                u(&mut w, *seq);
+                u(&mut w, u64::from(p.id.0));
+            }
+        }
+        u(&mut w, self.cmds.len() as u64);
+        for c in &self.cmds {
+            let (tag, route, stops) = match c {
+                Command::AddRoute { stops } => (1, 0, stops.as_slice()),
+                Command::EditRoute { route, stops } => (2, route.0, stops.as_slice()),
+                Command::RemoveRoute { route } => (3, route.0, &[][..]),
+            };
+            u(&mut w, tag);
+            u(&mut w, u64::from(route));
+            u(&mut w, stops.len() as u64);
+            for s in stops {
+                u(&mut w, u64::from(s.0));
+            }
+        }
+        w
+    }
+
+    pub fn state_hash(&self) -> u64 {
+        self.state_bytes()
+            .iter()
+            .fold(0xcbf2_9ce4_8422_2325, |h, &b| {
+                (h ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3)
+            })
     }
 
     fn run_commands(&mut self, events: &mut Vec<SimEvent>) {
         let cmds = std::mem::take(&mut self.cmds);
         for cmd in cmds {
-            match cmd {
-                Command::AddRoute { stops } => {
-                    if !self.add_route(stops) {
-                        events.push(SimEvent::CommandRejected);
-                    }
-                }
+            let ok = match cmd {
+                Command::AddRoute { stops } => self.add_route(stops),
+                Command::EditRoute { route, stops } => self.set_route(route, Some(stops)),
+                Command::RemoveRoute { route } => self.set_route(route, None),
+            };
+            if !ok {
+                events.push(SimEvent::CommandRejected);
             }
         }
     }
@@ -255,6 +360,36 @@ impl Sim {
         true
     }
 
+    fn set_route(&mut self, route: RouteId, stops: Option<Vec<StationId>>) -> bool {
+        let slot = usize::from(route.0);
+        if !matches!(self.routes.get(slot), Some(Some(_))) {
+            return false;
+        }
+        let mut trial = self.routes.clone();
+        trial[slot] = stops.clone();
+        if NetworkSnapshot::new(self.rev + 1, self.shapes.clone(), trial).is_err() {
+            return false;
+        }
+        let removed = stops.is_none();
+        self.routes[slot] = stops;
+        self.rev += 1;
+        self.dirty = true;
+        if removed {
+            let service = self.balance.service_ticks;
+            for bus in &mut self.buses {
+                if !matches!(bus.mode, BusMode::Active { route: r, .. } if r == route) {
+                    continue;
+                }
+                bus.mode = BusMode::Retiring;
+                if bus.phase == BusPhase::Boarding {
+                    bus.phase = BusPhase::Alighting;
+                    bus.timer = service;
+                }
+            }
+        }
+        true
+    }
+
     fn enqueue(&mut self, station: StationId, p: Passenger) {
         self.queues[usize::from(station.0)][usize::from(p.want.index())]
             .push_back((self.next_seq, p));
@@ -263,12 +398,21 @@ impl Sim {
 
     fn next_alighter(&self, net: &NetworkSnapshot, b: usize) -> Option<usize> {
         let bus = &self.buses[b];
-        let BusMode::Active { route, dir } = bus.mode;
-        let i = (0..net.stops(route)?.len()).find(|&i| net.stop(route, dir, i) == Some(bus.at))?;
+        let Some((route, dir, i)) = Self::stop_index(net, bus) else {
+            return (!bus.riders.is_empty()).then_some(0);
+        };
         let shape = self.shapes[usize::from(bus.at.0)];
         bus.riders
             .iter()
             .position(|p| p.want == shape || !self.table.stay(p.want, route, dir)[i])
+    }
+
+    fn stop_index(net: &NetworkSnapshot, bus: &Bus) -> Option<(RouteId, Dir, usize)> {
+        let BusMode::Active { route, dir } = bus.mode else {
+            return None;
+        };
+        let i = (0..net.stops(route)?.len()).find(|&i| net.stop(route, dir, i) == Some(bus.at))?;
+        Some((route, dir, i))
     }
 
     fn next_boarder(&self, b: usize) -> Option<usize> {
@@ -276,7 +420,9 @@ impl Sim {
         if bus.riders.len() >= self.balance.capacity {
             return None;
         }
-        let BusMode::Active { route, dir } = bus.mode;
+        let BusMode::Active { route, dir } = bus.mode else {
+            return None;
+        };
         let bit = board_bit(route, dir);
         self.queues[usize::from(bus.at.0)]
             .iter()
@@ -316,82 +462,112 @@ impl Sim {
         }
     }
 
-    fn alight_buses(&mut self, events: &mut Vec<SimEvent>) {
-        let net = self.snapshot();
-        for b in 0..self.buses.len() {
-            if !matches!(self.buses[b].phase, BusPhase::Alighting) {
-                continue;
-            }
-            if let Some(k) = self.next_alighter(&net, b) {
-                if !self.tick_timer(b) {
-                    continue;
-                }
-                let bus = &mut self.buses[b];
-                let p = bus.riders.remove(k);
-                let (id, station) = (bus.id, bus.at);
-                if self.shapes[usize::from(station.0)] == p.want {
-                    self.score += 1;
-                    events.push(SimEvent::Delivered {
-                        bus: id,
-                        passenger: p.id,
-                        station,
-                    });
-                } else {
-                    self.enqueue(station, p);
-                    events.push(SimEvent::Alighted {
-                        bus: id,
-                        passenger: p.id,
-                        station,
-                    });
-                }
-                if self.next_alighter(&net, b).is_some() {
-                    continue;
-                }
+    fn alight_bus(&mut self, net: &NetworkSnapshot, b: usize, events: &mut Vec<SimEvent>) {
+        if !matches!(self.buses[b].phase, BusPhase::Alighting) {
+            return;
+        }
+        if let Some(k) = self.next_alighter(net, b) {
+            if !self.tick_timer(b) {
+                return;
             }
             let bus = &mut self.buses[b];
-            let BusMode::Active { route, dir } = &mut bus.mode;
+            let p = bus.riders.remove(k);
+            let (id, station) = (bus.id, bus.at);
+            if self.shapes[usize::from(station.0)] == p.want {
+                self.score += 1;
+                events.push(SimEvent::Delivered {
+                    bus: id,
+                    passenger: p.id,
+                    station,
+                });
+            } else {
+                self.enqueue(station, p);
+                events.push(SimEvent::Alighted {
+                    bus: id,
+                    passenger: p.id,
+                    station,
+                });
+            }
+            if self.next_alighter(net, b).is_some() {
+                return;
+            }
+        }
+        let on_route = Self::stop_index(net, &self.buses[b]).is_some();
+        let bus = &mut self.buses[b];
+        let BusMode::Active { route, dir } = &mut bus.mode else {
+            bus.phase = BusPhase::Boarding;
+            return;
+        };
+        if on_route {
             if net.next_stop(*route, *dir, bus.at).is_none() {
                 *dir = dir.reverse();
             }
             bus.phase = BusPhase::Boarding;
+            return;
         }
+        let stops = net.stops(*route).expect("active route");
+        let (x, y) = self.pos[usize::from(bus.at.0)];
+        let d2 = |s: &StationId| {
+            let (sx, sy) = self.pos[usize::from(s.0)];
+            (sx - x).pow(2) + (sy - y).pow(2)
+        };
+        let i = (0..stops.len())
+            .min_by_key(|&i| (d2(&stops[i]), i))
+            .expect("route has stops");
+        *dir = if i + 1 == stops.len() {
+            Dir::Back
+        } else {
+            Dir::Fwd
+        };
+        bus.phase = BusPhase::Moving {
+            from: bus.at,
+            to: stops[i],
+            progress: 0,
+        };
     }
 
-    fn board_buses(&mut self, events: &mut Vec<SimEvent>) {
-        let net = self.snapshot();
-        for b in 0..self.buses.len() {
-            if !matches!(self.buses[b].phase, BusPhase::Boarding) {
-                continue;
-            }
-            if let Some(k) = self.next_boarder(b) {
-                if !self.tick_timer(b) {
-                    continue;
-                }
-                let at = self.buses[b].at;
-                let (_, p) = self.queues[usize::from(at.0)][k]
-                    .pop_front()
-                    .expect("eligible head");
-                let bus = &mut self.buses[b];
-                bus.riders.push(p);
-                events.push(SimEvent::Boarded {
-                    bus: bus.id,
-                    passenger: p.id,
-                    station: at,
-                });
-                if self.next_boarder(b).is_some() {
-                    continue;
-                }
-            }
-            let bus = &mut self.buses[b];
-            let BusMode::Active { route, dir } = bus.mode;
-            let to = net
-                .next_stop(route, dir, bus.at)
-                .expect("boarding has a next stop");
-            bus.phase = BusPhase::Moving {
-                from: bus.at,
-                to,
-                progress: 0,
-            };
+    fn board_bus(&mut self, net: &NetworkSnapshot, b: usize, events: &mut Vec<SimEvent>) {
+        let bus = &self.buses[b];
+        if bus.phase != BusPhase::Boarding || bus.mode == BusMode::Retiring {
+            return;
         }
+        if let Some(k) = self.next_boarder(b) {
+            if !self.tick_timer(b) {
+                return;
+            }
+            let at = self.buses[b].at;
+            let (_, p) = self.queues[usize::from(at.0)][k]
+                .pop_front()
+                .expect("eligible head");
+            let bus = &mut self.buses[b];
+            bus.riders.push(p);
+            events.push(SimEvent::Boarded {
+                bus: bus.id,
+                passenger: p.id,
+                station: at,
+            });
+            if self.next_boarder(b).is_some() {
+                return;
+            }
+        }
+        let bus = &mut self.buses[b];
+        let BusMode::Active { route, dir } = bus.mode else {
+            return;
+        };
+        let to = net
+            .next_stop(route, dir, bus.at)
+            .expect("boarding has a next stop");
+        bus.phase = BusPhase::Moving {
+            from: bus.at,
+            to,
+            progress: 0,
+        };
+    }
+
+    fn park_retired(&mut self) {
+        let before = self.buses.len();
+        self.buses
+            .retain(|b| !(b.mode == BusMode::Retiring && b.phase == BusPhase::Boarding));
+        self.free_buses += (before - self.buses.len()) as u16;
     }
 }

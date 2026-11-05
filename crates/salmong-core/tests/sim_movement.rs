@@ -1,7 +1,7 @@
 use salmong_core::balance::Balance;
 use salmong_core::ids::{Dir, StationId, Tick};
 use salmong_core::scenario::{RampPoint, Scenario, Shape, StationSpec};
-use salmong_core::sim::{BusPhase, Command, Sim, SimEvent};
+use salmong_core::sim::{BusMode, BusPhase, Command, Sim, SimEvent};
 
 fn scenario() -> Scenario {
     Scenario {
@@ -49,7 +49,10 @@ fn run_arrivals(route: &[u16], steps: u64) -> (Vec<(u16, u64)>, Vec<(u64, Dir, u
                 arrivals.push((st.0, at.0));
                 dir_at_arrival.push((
                     at.0,
-                    bus.dir,
+                    match bus.mode {
+                        BusMode::Active { dir, .. } => dir,
+                        BusMode::Retiring => panic!("retiring"),
+                    },
                     match &bus.phase {
                         BusPhase::Moving { to, .. } => to.0,
                         _ => u16::MAX,
