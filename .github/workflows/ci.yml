@@ -22,6 +22,40 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: scripts/check-unit-prs.sh
+  mutants:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: rs
+        run: |
+          if git diff --quiet "origin/${{ github.base_ref }}...HEAD" -- '*.rs'; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "skip: no .rs changes"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.rs.outputs.changed == 'true'
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.99.1
+      - if: steps.rs.outputs.changed == 'true'
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: mutants
+      - if: steps.rs.outputs.changed == 'true'
+        id: tool
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-mutants
+          key: cargo-mutants-27.1.0-rust-1.99.1
+      - if: steps.rs.outputs.changed == 'true' && steps.tool.outputs.cache-hit != 'true'
+        run: cargo install --locked cargo-mutants --version 27.1.0
+      - if: steps.rs.outputs.changed == 'true'
+        run: scripts/check-mutants.sh "origin/${{ github.base_ref }}"
   check:
     runs-on: ubuntu-latest
     steps:

@@ -384,3 +384,28 @@ fn invalid_edits_leave_state_hash_unchanged() {
     assert!(ea.is_empty());
     assert_ne!(a.state_hash(), b.state_hash());
 }
+
+#[test]
+fn each_accepted_edit_bumps_the_table_rev() {
+    let mut sim = Sim::new(scenario(), 0, Balance::mvp());
+    sim.queue(add(&[0, 1]));
+    sim.step(&mut Vec::new());
+    assert_eq!(sim.view().table_rev, 1);
+    sim.queue(add(&[1, 2]));
+    sim.step(&mut Vec::new());
+    assert_eq!(sim.view().table_rev, 2);
+}
+
+#[test]
+fn relocation_picks_the_nearest_stop_by_squared_distance() {
+    let r = run(
+        40,
+        |s, t| match t {
+            0 => s.queue(add(&[0, 2])),
+            1 => s.queue(edit(0, &[1, 5])),
+            _ => {}
+        },
+        |_, _| {},
+    );
+    assert_eq!(r.arrivals[..2], [(2, 10), (5, 20)]);
+}
