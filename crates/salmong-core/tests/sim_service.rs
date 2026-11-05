@@ -66,6 +66,7 @@ fn log(sim: &mut Sim, ticks: u64, mut before: impl FnMut(&mut Sim, u64)) -> Vec<
                 } => Ev::D(t, b, p, s),
                 SimEvent::CommandRejected => panic!("unexpected reject at {t}"),
                 SimEvent::Spawned { .. } => panic!("unexpected spawn at {t}"),
+                SimEvent::OverflowStarted { .. } | SimEvent::GameOver => continue,
             });
         }
     }
@@ -149,7 +150,11 @@ fn sustained_arrivals_full_bus_departs() {
 fn boarding_dwell_is_bounded_by_free_seats() {
     let cap = Balance::mvp().capacity as u64;
     let service = u64::from(Balance::mvp().service_ticks);
-    let mut sim = Sim::new(scenario(), 0, Balance::mvp());
+    let balance = Balance {
+        overflow_limit: u32::MAX,
+        ..Balance::mvp()
+    };
+    let mut sim = Sim::new(scenario(), 0, balance);
     add(&mut sim, &[0, 1, 2]);
     add(&mut sim, &[2, 0]);
     let wants = [Shape::Triangle, Shape::Square, Shape::Circle];

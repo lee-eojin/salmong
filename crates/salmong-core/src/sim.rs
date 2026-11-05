@@ -39,9 +39,19 @@ pub enum Command {
     },
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SimMode {
+    Running,
+    Over,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SimEvent {
     CommandRejected,
+    OverflowStarted {
+        station: StationId,
+    },
+    GameOver,
     Spawned {
         passenger: PassengerId,
         station: StationId,
@@ -102,6 +112,8 @@ pub struct Sim {
     next_seq: u64,
     next_passenger: u32,
     score: u64,
+    overflow: Vec<u32>,
+    mode: SimMode,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -122,6 +134,9 @@ pub struct SimView {
     pub table_rev: u64,
     pub score: u64,
     pub queued: usize,
+    pub mode: SimMode,
+    pub overflow: Vec<u32>,
+    pub queues: Vec<Vec<Passenger>>,
     pub buses: Vec<BusView>,
 }
 
@@ -137,6 +152,7 @@ impl Sim {
         let net = NetworkSnapshot::new(0, shapes.clone(), vec![]).expect("start stations");
         let table = DijkstraRouter.solve(&net);
         let queues = shapes.iter().map(|_| Default::default()).collect();
+        let overflow = vec![0; shapes.len()];
         Self {
             balance,
             shapes,
@@ -158,6 +174,8 @@ impl Sim {
             next_seq: 0,
             next_passenger: 0,
             score: 0,
+            overflow,
+            mode: SimMode::Running,
         }
     }
 
@@ -174,22 +192,72 @@ impl Sim {
     }
 
     pub fn step(&mut self, events: &mut Vec<SimEvent>) {
+        self.run(events, |_, _| {});
+    }
+
+    #[cfg(feature = "fixtures")]
+    pub fn step_observed(
+        &mut self,
+        events: &mut Vec<SimEvent>,
+        check: impl FnMut(&Sim, &[SimEvent]),
+    ) {
+        self.run(events, check);
+    }
+
+    fn run(&mut self, events: &mut Vec<SimEvent>, mut check: impl FnMut(&Sim, &[SimEvent])) {
+        if self.mode == SimMode::Over {
+            return;
+        }
         let tick = self.tick;
         self.run_commands(events);
+        check(self, events);
         if self.dirty {
             self.recompute_table();
         }
+        check(self, events);
         self.spawn(tick, events);
+        check(self, events);
         self.move_buses(tick);
+        check(self, events);
         let net = self.snapshot();
         for b in 0..self.buses.len() {
             self.alight_bus(&net, b, events);
+            check(self, events);
         }
         for b in 0..self.buses.len() {
             self.board_bus(&net, b, events);
+            check(self, events);
         }
         self.park_retired();
+        check(self, events);
+        self.overflow(events);
         self.tick = Tick(tick.0 + 1);
+        check(self, events);
+    }
+
+    fn overflow(&mut self, events: &mut Vec<SimEvent>) {
+        for st in 0..self.shapes.len() {
+            let queue = self.queues[st].iter().map(VecDeque::len).sum::<usize>();
+            let timer = &mut self.overflow[st];
+            if queue > self.balance.station_capacity {
+                if *timer == 0 {
+                    events.push(SimEvent::OverflowStarted {
+                        station: StationId(st as u16),
+                    });
+                }
+                *timer += 1;
+            } else {
+                *timer = timer.saturating_sub(2);
+            }
+        }
+        if self
+            .overflow
+            .iter()
+            .any(|&t| t >= self.balance.overflow_limit)
+        {
+            self.mode = SimMode::Over;
+            events.push(SimEvent::GameOver);
+        }
     }
 
     pub fn view(&self) -> SimView {
@@ -200,6 +268,13 @@ impl Sim {
             table_rev: self.table.rev(),
             score: self.score,
             queued: self.queues.iter().flatten().map(VecDeque::len).sum(),
+            mode: self.mode,
+            overflow: self.overflow.clone(),
+            queues: self
+                .queues
+                .iter()
+                .map(|qs| qs.iter().flatten().map(|&(_, p)| p).collect())
+                .collect(),
             buses: self
                 .buses
                 .iter()
@@ -289,6 +364,10 @@ impl Sim {
         u(&mut w, ri);
         for a in &self.acc {
             u(&mut w, *a);
+        }
+        u(&mut w, u64::from(self.mode == SimMode::Over));
+        for t in &self.overflow {
+            u(&mut w, u64::from(*t));
         }
         u(&mut w, self.routes.len() as u64);
         for r in &self.routes {
