@@ -270,7 +270,7 @@ station k<64   first a in 0..255 with x = pick(2,w-3,r(1,k,a)), y = pick(2,h-3,r
   which keeps serde out of core, rejects unknown fields and runs `Scenario::validate` per entry. `Sim::new` takes one `Scenario`.
 - **Acceptance check (M4.4).** For seeds 1 to 3 and counts 1, 16, 64, `bend bend/scenarios.bend <seed> <count>` and `salmong-oracle
   pack <seed> <count>` must print `cmp`-equal bytes that pass `Scenario::validate`; seed 1 count 16 must match `pack.v1.sha256`.
-  Equal bytes prove agreement only, so Rust mutations (wrong coordinate, hash index, ramp value) must each fail. CLI verified at M4.1: `IO.args()` starts with the program, so `<seed>` is index 1 and `<count>` index 2.
+  Equal bytes prove agreement only, so Rust mutations (wrong coordinate, hash index, ramp value) must each fail. CLI verified at M4.1: `IO.args()` starts with the program, so `<seed>` is index 1 and `<count>` index 2. `scripts/check-pack.sh` runs this check; `salmong-oracle validate <file>` calls `parse_pack`, which runs `Scenario::validate`.
 
 ## 6. Web 60 fps budget
 
