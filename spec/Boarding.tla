@@ -61,6 +61,8 @@ TableGolden ==
         b == Solve(N1, "Square")
         c == Solve(N2, "Square")
         d == Solve(N0, "Circle")
+        e == Solve(N2, "Triangle")
+        f == Solve(N4, "Square")
     IN /\ a.cost = <<90, 80, 40, 0>>
        /\ a.ride[<<1, "Fwd", 2>>] = 50
        /\ a.stay[<<1, "Fwd", 2>>]
@@ -73,6 +75,8 @@ TableGolden ==
        /\ c.board[1] = {}
        /\ d.cost = <<0, 40, 0, 40>>
        /\ d.board[2] = {<<1, "Fwd">>, <<1, "Back">>}
+       /\ e.cost = <<40, 0, Inf, Inf>>
+       /\ f.cost = <<Inf, Inf, Inf, 0>>
 ASSUME TableGolden
 VARIABLES network, dir, retiring, queue, onboard, busAt, busPhase, delivered, edits, spawned, want
 vars == <<network, dir, retiring, queue, onboard, busAt, busPhase, delivered, edits, spawned, want>>
@@ -90,8 +94,14 @@ Restarts(b, n) ==
     /\ busPhase[b] \in {"Alighting", "Boarding"}
     /\ b \notin retiring
     /\ IF Fault = "RestartEditedOnly" THEN network[BusRoute[b]] # n[BusRoute[b]] ELSE TRUE
-Eligible(b) == {i \in DOMAIN queue[busAt[b]] :
-    <<BusRoute[b], dir[b]>> \in Table[network][want[queue[busAt[b]][i]]].board[busAt[b]]}
+Serves(b, p) ==
+    IF Fault = "BoardAnyBus" THEN TRUE
+    ELSE <<BusRoute[b], dir[b]>> \in Table[network][want[p]].board[busAt[b]]
+Eligible(b) ==
+    LET eligible == {i \in DOMAIN queue[busAt[b]] : Serves(b, queue[busAt[b]][i])}
+    IN IF Fault = "HeadOfLine" THEN eligible \cap {1} ELSE eligible
+RelocationStops(b) ==
+    IF Fault = "StuckOffRoute" THEN {} ELSE Range(network[BusRoute[b]])
 CanBoard(b) == BoardingOpen(b) /\ SeatFree(b) /\ Eligible(b) # {}
 Init ==
     /\ network = N0
@@ -137,7 +147,7 @@ EndAlight(b) ==
         THEN /\ busPhase' = [busPhase EXCEPT ![b] = "Parked"]
              /\ UNCHANGED <<busAt, dir>>
         ELSE IF ~OnRoute(b)
-        THEN \E st \in Range(network[BusRoute[b]]) :
+        THEN \E st \in RelocationStops(b) :
              /\ busAt' = [busAt EXCEPT ![b] = st]
              /\ dir' = [dir EXCEPT ![b] = IF st = network[BusRoute[b]][Len(network[BusRoute[b]])] THEN "Back" ELSE "Fwd"]
              /\ busPhase' = [busPhase EXCEPT ![b] = "Moving"]
@@ -166,8 +176,10 @@ EditNetwork ==
          /\ busPhase' = [b \in Buses |-> IF Restarts(b, n) THEN "Alighting" ELSE busPhase[b]]
     /\ edits' = edits + 1
     /\ UNCHANGED <<dir, queue, onboard, busAt, delivered, spawned, want>>
-Next == Spawn \/ EditNetwork \/ (\E b \in Buses : Move(b) \/ Alight(b) \/ EndAlight(b) \/ Board(b) \/ Depart(b))
+BusStep(b) == Move(b) \/ Alight(b) \/ EndAlight(b) \/ Board(b) \/ Depart(b)
+Next == Spawn \/ EditNetwork \/ (\E b \in Buses : BusStep(b))
 Spec == Init /\ [][Next]_vars
+LiveSpec == Spec /\ \A b \in Buses : WF_vars(BusStep(b))
 TypeOK ==
     /\ network \in Networks
     /\ dir \in [Buses -> Dirs]
@@ -196,4 +208,23 @@ TransferSoundStep == \A b \in Buses : \A p \in Range(onboard[b]) \ Range(onboard
     /\ busPhase[b] # "Moving"
     /\ p \in delivered' \/ queue'[busAt[b]] = Append(queue[busAt[b]], p)
 TransferSound == [][TransferSoundStep]_vars
+Potential(p) ==
+    LET t == Table[network][want[p]]
+        waiting == {st \in Stations : p \in Range(queue[st])}
+        riding == {b \in Buses : p \in Range(onboard[b])}
+    IN IF p \in delivered THEN 0
+       ELSE IF waiting # {} THEN t.cost[CHOOSE st \in waiting : TRUE]
+       ELSE LET b == CHOOSE x \in riding : TRUE
+            IN IF b \in retiring \/ ~OnRoute(b) THEN t.cost[busAt[b]]
+               ELSE t.ride[<<BusRoute[b], dir[b], busAt[b]>>]
+Owed(p) == p <= spawned /\ p \notin delivered /\ Potential(p) < Inf
+Boards(p) == \E b \in Buses : p \in Range(onboard'[b]) \ Range(onboard[b])
+Hops(p) == \E b \in Buses : p \in Range(onboard[b]) /\ busAt'[b] # busAt[b]
+Drop(p) == IF Boards(p) THEN Transfer ELSE IF Hops(p) THEN Hop ELSE 0
+Less(a, d) == IF a = Inf THEN Inf ELSE a - d
+NoPingPongStep ==
+    network' = network => \A p \in 1..spawned : Potential(p)' = Less(Potential(p), Drop(p))
+NoPingPong == [][NoPingPongStep]_vars
+Delivery == \A p \in Passengers : []<>~Owed(p)
+BusProgress == \A b \in Buses : []<>(busPhase[b] \in {"Moving", "Parked"})
 =============================================================================

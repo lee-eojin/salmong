@@ -15,7 +15,7 @@ salmong is in milestone M0, so there is no game to play yet. The app opens a bla
 | Game client | Rust and [Bevy](https://bevy.org) 0.20.1, compiled to WASM and rendered with WebGPU | Blank app in `crates/salmong-game` |
 | Rules and routing | Rust in `crates/salmong-core`, with integer maths and no Bevy | Empty library, planned for M2 |
 | Scenarios | [Bend 2](https://github.com/bendlang/bend), run offline. Bend writes the scenario pack that the game loads, and it never runs in the browser | Planned for M4 |
-| Rule checks | [TLA+](https://github.com/tlaplus/tlaplus). TLC checks the boarding rules before they are coded | Safety model in `spec/`; liveness planned for M1.2 |
+| Rule checks | [TLA+](https://github.com/tlaplus/tlaplus). TLC checks the boarding rules before they are coded | Safety and liveness models in `spec/` |
 
 WebGPU is the only web backend in the MVP. A browser with no WebGPU adapter shows an error screen.
 
@@ -68,7 +68,7 @@ scripts/check-boarding.sh
 
 - `scripts/check-toolchain.sh` fails if `rustc` is not 1.99.1, and then runs `cargo check` for wasm32.
 - `scripts/check-web-build.sh` builds the release wasm and confirms that WebGPU is the only web backend.
-- `scripts/check-boarding.sh` fails on a different TLC build, a safety violation or deadlock, incomplete exploration, mismatched fault names, or a deliberate fault that does not break its expected property. Use `--simulate` for the sandbox self-check; it is not exhaustive.
+- `scripts/check-boarding.sh` fails on a different TLC build, a safety or liveness violation or deadlock, incomplete exploration, mismatched fault names, or a deliberate fault that does not break its expected property. Use `--simulate` for the sandbox self-check; it is not exhaustive.
 - `scripts/check-no-comments.sh` fails if a source file holds a code comment. `cargo test` runs the same check.
 
 To confirm that this README is still true, run `scripts/check-readme.sh`. It runs every command above and follows every link.
