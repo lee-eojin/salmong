@@ -49,3 +49,23 @@ reason = "The CLI is a thin argument parser over pack_bytes, which pack_sha test
 [[allow]]
 mutant = "crates/salmong-oracle/src/main.rs: replace == with != in main"
 reason = "The CLI is a thin argument parser over pack_bytes, which pack_sha tests through the library. No test spawns the binary."
+
+[[allow]]
+mutant = "crates/salmong-core/src/replay.rs: replace wasm_abi::empty3_scenario -> Scenario with Default::default()"
+reason = "wasm_abi is cfg(target_arch = wasm32) only. Host cargo-mutants never links it; scripts/check-determinism.mjs loads the wasm and checks the three hand-table hashes."
+
+[[allow]]
+mutant = "crates/salmong-core/src/replay.rs: replace wasm_abi::salmong_empty3_hash_count -> u32 with 0"
+reason = "wasm_abi is cfg(target_arch = wasm32) only. Host cargo-mutants never links it; scripts/check-determinism.mjs loads the wasm and checks the three hand-table hashes."
+
+[[allow]]
+mutant = "crates/salmong-core/src/replay.rs: replace wasm_abi::salmong_empty3_hash_count -> u32 with 1"
+reason = "wasm_abi is cfg(target_arch = wasm32) only. Host cargo-mutants never links it; scripts/check-determinism.mjs loads the wasm and checks the three hand-table hashes."
+
+[[allow]]
+mutant = "crates/salmong-core/src/replay.rs: replace wasm_abi::salmong_empty3_hash_at -> u64 with 0"
+reason = "wasm_abi is cfg(target_arch = wasm32) only. Host cargo-mutants never links it; scripts/check-determinism.mjs loads the wasm and checks the three hand-table hashes."
+
+[[allow]]
+mutant = "crates/salmong-core/src/replay.rs: replace wasm_abi::salmong_empty3_hash_at -> u64 with 1"
+reason = "wasm_abi is cfg(target_arch = wasm32) only. Host cargo-mutants never links it; scripts/check-determinism.mjs loads the wasm and checks the three hand-table hashes."
