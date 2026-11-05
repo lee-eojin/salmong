@@ -33,20 +33,25 @@ fn one_2d_camera_clears_with_the_global_colour() {
         .iter(app.world())
         .map(|camera| camera.clear_color.clone())
         .collect();
-    assert!(matches!(cameras[..], [ClearColorConfig::Default]), "{cameras:?}");
+    assert!(
+        matches!(cameras[..], [ClearColorConfig::Default]),
+        "{cameras:?}"
+    );
 }
 
 #[test]
 fn shipped_plugins_start_without_a_window_or_gpu() {
     let mut app = App::new();
-    app.add_plugins(plugins().disable::<WinitPlugin>().set(RenderPlugin {
-        render_creation: WgpuSettings {
-            backends: None,
+    app.add_plugins(
+        plugins().disable::<WinitPlugin>().set(RenderPlugin {
+            render_creation: WgpuSettings {
+                backends: None,
+                ..default()
+            }
+            .into(),
             ..default()
-        }
-        .into(),
-        ..default()
-    }));
+        }),
+    );
     app.finish();
     app.cleanup();
     app.update();

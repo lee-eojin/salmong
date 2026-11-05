@@ -10,14 +10,32 @@ pub struct Pack {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PackError {
-    Json { message: String },
-    Schema { found: String },
-    Version { found: u32 },
-    UnknownShape { scenario: usize, station: usize, found: u8 },
+    Json {
+        message: String,
+    },
+    Schema {
+        found: String,
+    },
+    Version {
+        found: u32,
+    },
+    UnknownShape {
+        scenario: usize,
+        station: usize,
+        found: u8,
+    },
     NoScenarios,
-    ScenarioId { index: usize, found: u32 },
-    Scenario { index: usize, error: ScenarioError },
-    NonCanonical { offset: usize },
+    ScenarioId {
+        index: usize,
+        found: u32,
+    },
+    Scenario {
+        index: usize,
+        error: ScenarioError,
+    },
+    NonCanonical {
+        offset: usize,
+    },
 }
 
 pub fn parse_pack(bytes: &[u8]) -> Result<Pack, PackError> {
@@ -28,7 +46,9 @@ pub fn parse_pack(bytes: &[u8]) -> Result<Pack, PackError> {
         return Err(PackError::Schema { found: wire.schema });
     }
     if wire.version != 1 {
-        return Err(PackError::Version { found: wire.version });
+        return Err(PackError::Version {
+            found: wire.version,
+        });
     }
     let mut scenarios = Vec::new();
     for (scenario, row) in wire.scenarios.into_iter().enumerate() {
@@ -39,14 +59,24 @@ pub fn parse_pack(bytes: &[u8]) -> Result<Pack, PackError> {
                 station,
                 found: index,
             })?;
-            stations.push(StationSpec { x, y, shape, at_tick, weight });
+            stations.push(StationSpec {
+                x,
+                y,
+                shape,
+                at_tick,
+                weight,
+            });
         }
         scenarios.push(Scenario {
             id: row.id,
             seed: row.seed,
             w: row.w,
             h: row.h,
-            ramp: row.ramp.into_iter().map(|(tick, rate)| RampPoint { tick, rate }).collect(),
+            ramp: row
+                .ramp
+                .into_iter()
+                .map(|(tick, rate)| RampPoint { tick, rate })
+                .collect(),
             stations,
         });
     }
@@ -60,11 +90,16 @@ pub fn parse_pack(bytes: &[u8]) -> Result<Pack, PackError> {
     }
     for (index, scenario) in pack.scenarios.iter().enumerate() {
         if usize::try_from(scenario.id) != Ok(index) {
-            return Err(PackError::ScenarioId { index, found: scenario.id });
+            return Err(PackError::ScenarioId {
+                index,
+                found: scenario.id,
+            });
         }
     }
     for (index, scenario) in pack.scenarios.iter().enumerate() {
-        scenario.validate().map_err(|error| PackError::Scenario { index, error })?;
+        scenario
+            .validate()
+            .map_err(|error| PackError::Scenario { index, error })?;
     }
     let canonical = write_pack(&pack);
     if canonical != bytes {
@@ -79,18 +114,38 @@ pub fn parse_pack(bytes: &[u8]) -> Result<Pack, PackError> {
 }
 
 pub fn write_pack(pack: &Pack) -> Vec<u8> {
-    let scenarios = pack.scenarios.iter().map(|scenario| {
-        let ramp = scenario.ramp.iter()
-            .map(|point| format!("[{},{}]", point.tick, point.rate))
-            .collect::<Vec<_>>()
-            .join(",");
-        let stations = scenario.stations.iter().map(|station| {
-            format!("[{},{},{},{},{}]",
-                station.x, station.y, station.shape.index(), station.at_tick, station.weight)
-        }).collect::<Vec<_>>().join(",");
-        format!("{{\"id\":{},\"seed\":{},\"w\":{},\"h\":{},\"ramp\":[{}],\"stations\":[{}]}}",
-            scenario.id, scenario.seed, scenario.w, scenario.h, ramp, stations)
-    }).collect::<Vec<_>>().join(",\n");
+    let scenarios = pack
+        .scenarios
+        .iter()
+        .map(|scenario| {
+            let ramp = scenario
+                .ramp
+                .iter()
+                .map(|point| format!("[{},{}]", point.tick, point.rate))
+                .collect::<Vec<_>>()
+                .join(",");
+            let stations = scenario
+                .stations
+                .iter()
+                .map(|station| {
+                    format!(
+                        "[{},{},{},{},{}]",
+                        station.x,
+                        station.y,
+                        station.shape.index(),
+                        station.at_tick,
+                        station.weight
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(",");
+            format!(
+                "{{\"id\":{},\"seed\":{},\"w\":{},\"h\":{},\"ramp\":[{}],\"stations\":[{}]}}",
+                scenario.id, scenario.seed, scenario.w, scenario.h, ramp, stations
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(",\n");
     format!("{{\"schema\":\"salmong.scenario-pack\",\"version\":1,\"gen\":{},\"pack_seed\":{},\"scenarios\":[\n{}\n]}}\n",
         pack.generation, pack.pack_seed, scenarios).into_bytes()
 }

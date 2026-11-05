@@ -14,6 +14,7 @@ enum Syntax {
     Shell,
     Tla,
     Toml,
+    Yaml,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -41,6 +42,7 @@ const BY_EXTENSION: &[(&str, FileClass)] = &[
     ("sha256", FileClass::Exempt),
     ("tla", FileClass::Scan(Syntax::Tla)),
     ("toml", FileClass::Scan(Syntax::Toml)),
+    ("yml", FileClass::Scan(Syntax::Yaml)),
 ];
 
 fn classify(path: &str) -> Option<FileClass> {
@@ -99,7 +101,7 @@ const fn grammar(syntax: Syntax) -> Grammar {
             rust_literals: true,
             ..plain
         },
-        Syntax::Shell => Grammar {
+        Syntax::Shell | Syntax::Yaml => Grammar {
             line: LineMarker::WordStart("#"),
             quotes: &[("'", false), ("\"", true)],
             ..plain
@@ -188,7 +190,10 @@ fn skip_rust_literal(source: &[u8], at: usize) -> Option<usize> {
             (source.get(at + 1 + width) == Some(&b'\'')).then_some(at + 2 + width)
         }
         b'r' if !previous_is_identifier => {
-            let hashes = source[at + 1..].iter().take_while(|byte| **byte == b'#').count();
+            let hashes = source[at + 1..]
+                .iter()
+                .take_while(|byte| **byte == b'#')
+                .count();
             let open = at + 1 + hashes;
             if source.get(open) != Some(&b'"') {
                 return None;
@@ -219,8 +224,7 @@ fn scan(grammar: Grammar, source: &[u8], start: usize, found: &mut Vec<usize>) {
             LineMarker::None => false,
             LineMarker::Anywhere(marker) => starts(source, at, marker),
             LineMarker::WordStart(marker) => {
-                starts(source, at, marker)
-                    && (at == 0 || b" \t\n;&|()".contains(&source[at - 1]))
+                starts(source, at, marker) && (at == 0 || b" \t\n;&|()".contains(&source[at - 1]))
             }
             LineMarker::LineStart(marker) => {
                 starts(source, at, marker) && (at == 0 || source[at - 1] == b'\n')
@@ -279,7 +283,12 @@ fn skip_template(source: &[u8], open: usize, found: &mut Vec<usize>) -> usize {
     source.len()
 }
 
-fn scan_javascript(source: &[u8], start: usize, in_template: bool, found: &mut Vec<usize>) -> usize {
+fn scan_javascript(
+    source: &[u8],
+    start: usize,
+    in_template: bool,
+    found: &mut Vec<usize>,
+) -> usize {
     let mut at = start;
     let mut depth = 0;
     let mut previous = None;
@@ -319,7 +328,13 @@ fn scan_javascript(source: &[u8], start: usize, in_template: bool, found: &mut V
     source.len()
 }
 
-fn embedded(source: &[u8], tag_at: usize, tag: &str, syntax: Syntax, found: &mut Vec<usize>) -> usize {
+fn embedded(
+    source: &[u8],
+    tag_at: usize,
+    tag: &str,
+    syntax: Syntax,
+    found: &mut Vec<usize>,
+) -> usize {
     let close_tag = format!("</{tag}");
     let body = find(source, tag_at, ">").map_or(source.len(), |end| end + 1);
     let close = find(source, body, &close_tag).unwrap_or(source.len());
@@ -349,7 +364,8 @@ fn scan_html(source: &[u8], found: &mut Vec<usize>) {
 
 fn comment_offsets(syntax: Syntax, source: &[u8]) -> Vec<usize> {
     let mut found = Vec::new();
-    let body = if matches!(syntax, Syntax::Shell | Syntax::JavaScript) && source.starts_with(b"#!") {
+    let body = if matches!(syntax, Syntax::Shell | Syntax::JavaScript) && source.starts_with(b"#!")
+    {
         line_end(source, 0)
     } else {
         0
@@ -368,7 +384,12 @@ fn comment_lines(syntax: Syntax, source: &str) -> Vec<usize> {
     let bytes = source.as_bytes();
     let mut lines: Vec<usize> = comment_offsets(syntax, bytes)
         .into_iter()
-        .map(|offset| 1 + bytes[..offset].iter().filter(|byte| **byte == b'\n').count())
+        .map(|offset| {
+            1 + bytes[..offset]
+                .iter()
+                .filter(|byte| **byte == b'\n')
+                .count()
+        })
         .collect();
     lines.sort_unstable();
     lines.dedup();
@@ -383,7 +404,13 @@ fn repo_root() -> PathBuf {
 
 fn listed_files() -> Vec<String> {
     let output = Command::new("git")
-        .args(["ls-files", "--cached", "--others", "--exclude-standard", "-z"])
+        .args([
+            "ls-files",
+            "--cached",
+            "--others",
+            "--exclude-standard",
+            "-z",
+        ])
         .current_dir(repo_root())
         .output()
         .expect("git must be on PATH");
@@ -402,7 +429,9 @@ fn violations(path: &str) -> Vec<String> {
         return Vec::new();
     }
     match classify(path) {
-        None => vec![format!("{path}: no syntax row, add one to BY_NAME or BY_EXTENSION")],
+        None => vec![format!(
+            "{path}: no syntax row, add one to BY_NAME or BY_EXTENSION"
+        )],
         Some(FileClass::Exempt) => Vec::new(),
         Some(FileClass::Scan(syntax)) => {
             let source = std::fs::read_to_string(&full).expect("scanned files are UTF-8");
@@ -447,7 +476,11 @@ fn finds_comments_in_every_syntax() {
         (Syntax::Css, "a { b: c; } /* d */\n", &[1]),
         (Syntax::Html, "<p>a</p>\n<!-- b -->\n", &[2]),
         (Syntax::Html, "<style>\n/* a */\n</style>\n", &[2]),
-        (Syntax::Html, "<script type=\"module\">\n// a\n</script>\n", &[2]),
+        (
+            Syntax::Html,
+            "<script type=\"module\">\n// a\n</script>\n",
+            &[2],
+        ),
         (Syntax::Tla, "A == 1 \\* b\n", &[1]),
         (Syntax::Tla, "Next == x' = 1 \\* b\n", &[1]),
         (Syntax::Tla, "(* a (* b *) c *)\n(* d *)\n", &[1, 2]),
@@ -455,7 +488,11 @@ fn finds_comments_in_every_syntax() {
         (Syntax::GitIgnore, "# a\n/b\n", &[1]),
     ];
     for (syntax, source, expected) in cases {
-        assert_eq!(comment_lines(*syntax, source), *expected, "{syntax:?}: {source:?}");
+        assert_eq!(
+            comment_lines(*syntax, source),
+            *expected,
+            "{syntax:?}: {source:?}"
+        );
     }
 }
 
@@ -469,7 +506,10 @@ fn ignores_comment_markers_that_are_not_comments() {
         (Syntax::Rust, "let a = '/'; let b = '\\''; let c = 'é';\n"),
         (Syntax::Rust, "fn a<'b>() {} let c = \"//\";\n"),
         (Syntax::Rust, "let r#type = 1;\n"),
-        (Syntax::Toml, "a = \"#b\"\nc = '#d'\ne = \"\"\"\n#f\n\"\"\"\n"),
+        (
+            Syntax::Toml,
+            "a = \"#b\"\nc = '#d'\ne = \"\"\"\n#f\n\"\"\"\n",
+        ),
         (Syntax::Shell, "#!/usr/bin/env bash\n"),
         (Syntax::Shell, "echo ${#a[@]} $# a#b '#c' \"#d\"\n"),
         (Syntax::Shell, "grep -q 'a \"b\"' <<<\"$c\"\n"),
@@ -480,15 +520,25 @@ fn ignores_comment_markers_that_are_not_comments() {
         (Syntax::JavaScript, "a(\"http://b\", 'c//d');\n"),
         (Syntax::JavaScript, "a = /[/]/;\n"),
         (Syntax::Css, "a { b: url(\"/*c*/\"); }\n"),
-        (Syntax::Html, "<!doctype html>\n<a href=\"https://b/#c\">d</a>\n"),
+        (
+            Syntax::Html,
+            "<!doctype html>\n<a href=\"https://b/#c\">d</a>\n",
+        ),
         (Syntax::Html, "<script>a(\"<!-- b -->\");</script>\n"),
-        (Syntax::Tla, "---- MODULE A ----\nB == \"\\*\"\nC == 1 * 2\n====\n"),
+        (
+            Syntax::Tla,
+            "---- MODULE A ----\nB == \"\\*\"\nC == 1 * 2\n====\n",
+        ),
         (Syntax::Tla, "Next == x' = x + 1 /\\ y' = y \\\\ {z}\n"),
         (Syntax::Bend, "def a() -> String:\n  \"#b\"\n"),
         (Syntax::GitIgnore, "/a#b\n"),
     ];
     for (syntax, source) in cases {
-        assert_eq!(comment_lines(*syntax, source), Vec::<usize>::new(), "{syntax:?}: {source:?}");
+        assert_eq!(
+            comment_lines(*syntax, source),
+            Vec::<usize>::new(),
+            "{syntax:?}: {source:?}"
+        );
     }
 }
 
@@ -496,10 +546,20 @@ fn ignores_comment_markers_that_are_not_comments() {
 fn classifies_files() {
     assert_eq!(classify("README.md"), Some(FileClass::Exempt));
     assert_eq!(classify("Cargo.lock"), Some(FileClass::Exempt));
-    assert_eq!(classify("assets/scenarios/pack.v1.json"), Some(FileClass::Exempt));
-    assert_eq!(classify("spec/Boarding.safety.cfg"), Some(FileClass::Scan(Syntax::Tla)));
+    assert_eq!(
+        classify("assets/scenarios/pack.v1.json"),
+        Some(FileClass::Exempt)
+    );
+    assert_eq!(
+        classify("spec/Boarding.safety.cfg"),
+        Some(FileClass::Scan(Syntax::Tla))
+    );
     assert_eq!(classify("assets/unknown.wgsl"), None);
     assert_eq!(classify("Makefile"), None);
+    assert_eq!(
+        classify(".github/workflows/ci.yml"),
+        Some(FileClass::Scan(Syntax::Yaml))
+    );
 }
 
 fn scan_in_child(manifest_dir: Option<&Path>) -> Output {
@@ -532,18 +592,31 @@ fn fixture_tree_with_a_comment() -> PathBuf {
 #[test]
 fn scan_reads_the_tree_named_at_run_time() {
     let root = fixture_tree_with_a_comment();
-    let output = std::panic::catch_unwind(|| scan_in_child(Some(&root.join("crates/salmong-core"))));
+    let output =
+        std::panic::catch_unwind(|| scan_in_child(Some(&root.join("crates/salmong-core"))));
     std::fs::remove_dir_all(&root).expect("the fixture tree is removable");
     let output = output.unwrap_or_else(|panic| std::panic::resume_unwind(panic));
     let report = String::from_utf8_lossy(&output.stdout);
-    assert!(!output.status.success(), "the scan missed the fixture comment: {report}");
-    assert!(report.contains("scripts/planted.sh:1: comment"), "wrong report: {report}");
+    assert!(
+        !output.status.success(),
+        "the scan missed the fixture comment: {report}"
+    );
+    assert!(
+        report.contains("scripts/planted.sh:1: comment"),
+        "wrong report: {report}"
+    );
 }
 
 #[test]
 fn scan_fails_without_a_run_time_manifest_dir() {
     let output = scan_in_child(None);
     let report = String::from_utf8_lossy(&output.stdout);
-    assert!(!output.status.success(), "the scan ran with no run-time root: {report}");
-    assert!(report.contains("CARGO_MANIFEST_DIR"), "wrong report: {report}");
+    assert!(
+        !output.status.success(),
+        "the scan ran with no run-time root: {report}"
+    );
+    assert!(
+        report.contains("CARGO_MANIFEST_DIR"),
+        "wrong report: {report}"
+    );
 }
