@@ -1,3 +1,4 @@
+pub mod bots;
 pub mod generate;
 pub mod h32;
 pub mod router;
