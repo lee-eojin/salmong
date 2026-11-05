@@ -1,5 +1,7 @@
 assoc salmong_core::ids::Dir::ALL
 assoc salmong_core::scenario::Shape::ALL
+const salmong_core::input::HIT_RADIUS
+const salmong_core::input::MILLI
 const salmong_core::network::MAX_ROUTES
 const salmong_core::replay::RULES_VERSION
 const salmong_core::routing::HOP
@@ -10,6 +12,7 @@ const salmong_core::scenario::MIN_SPACING_SQ
 const salmong_core::scenario::START_STATIONS
 const salmong_core::scenario::STAR_FROM_TICK
 enum salmong_core::ids::Dir
+enum salmong_core::input::PointerEvent
 enum salmong_core::network::NetworkError
 enum salmong_core::replay::ReplayError
 enum salmong_core::scenario::ScenarioError
@@ -34,6 +37,8 @@ field salmong_core::ids::PassengerId::0
 field salmong_core::ids::RouteId::0
 field salmong_core::ids::StationId::0
 field salmong_core::ids::Tick::0
+field salmong_core::input::World::x
+field salmong_core::input::World::y
 field salmong_core::replay::Replay::body
 field salmong_core::replay::Replay::header
 field salmong_core::replay::ReplayHeader::balance
@@ -87,6 +92,8 @@ field salmong_core::trace::TraceStep::action
 field salmong_core::trace::TraceStep::after
 field salmong_core::trace::TraceStep::before
 field salmong_core::trace::TraceStep::tick
+fn salmong_core::input::bind(sim, pending, log)
+fn salmong_core::input::trail_command(trail, net)
 fn salmong_core::replay::hash_sequence(scenario, seed, balance, body, ticks)
 fn salmong_core::replay::run(scenario, pack_sha256, seed, balance, replay, ticks)
 fn salmong_core::routing::board_bit(route, dir)
@@ -98,6 +105,10 @@ impl Clone for salmong_core::ids::PassengerId
 impl Clone for salmong_core::ids::RouteId
 impl Clone for salmong_core::ids::StationId
 impl Clone for salmong_core::ids::Tick
+impl Clone for salmong_core::input::Fit
+impl Clone for salmong_core::input::Pointer
+impl Clone for salmong_core::input::PointerEvent
+impl Clone for salmong_core::input::World
 impl Clone for salmong_core::network::NetworkError
 impl Clone for salmong_core::network::NetworkSnapshot
 impl Clone for salmong_core::replay::Replay
@@ -131,6 +142,9 @@ impl Copy for salmong_core::ids::PassengerId
 impl Copy for salmong_core::ids::RouteId
 impl Copy for salmong_core::ids::StationId
 impl Copy for salmong_core::ids::Tick
+impl Copy for salmong_core::input::Fit
+impl Copy for salmong_core::input::PointerEvent
+impl Copy for salmong_core::input::World
 impl Copy for salmong_core::replay::ReplayError
 impl Copy for salmong_core::replay::ReplayHeader
 impl Copy for salmong_core::rng::Pcg32
@@ -149,6 +163,10 @@ impl Debug for salmong_core::ids::PassengerId
 impl Debug for salmong_core::ids::RouteId
 impl Debug for salmong_core::ids::StationId
 impl Debug for salmong_core::ids::Tick
+impl Debug for salmong_core::input::Fit
+impl Debug for salmong_core::input::Pointer
+impl Debug for salmong_core::input::PointerEvent
+impl Debug for salmong_core::input::World
 impl Debug for salmong_core::network::NetworkError
 impl Debug for salmong_core::network::NetworkSnapshot
 impl Debug for salmong_core::replay::Replay
@@ -175,6 +193,7 @@ impl Debug for salmong_core::trace::BusState
 impl Debug for salmong_core::trace::Phase
 impl Debug for salmong_core::trace::TraceState
 impl Debug for salmong_core::trace::TraceStep
+impl Default for salmong_core::input::Pointer
 impl Eq for salmong_core::balance::Balance
 impl Eq for salmong_core::ids::BusId
 impl Eq for salmong_core::ids::Dir
@@ -182,6 +201,10 @@ impl Eq for salmong_core::ids::PassengerId
 impl Eq for salmong_core::ids::RouteId
 impl Eq for salmong_core::ids::StationId
 impl Eq for salmong_core::ids::Tick
+impl Eq for salmong_core::input::Fit
+impl Eq for salmong_core::input::Pointer
+impl Eq for salmong_core::input::PointerEvent
+impl Eq for salmong_core::input::World
 impl Eq for salmong_core::network::NetworkError
 impl Eq for salmong_core::network::NetworkSnapshot
 impl Eq for salmong_core::replay::Replay
@@ -221,6 +244,10 @@ impl PartialEq for salmong_core::ids::PassengerId
 impl PartialEq for salmong_core::ids::RouteId
 impl PartialEq for salmong_core::ids::StationId
 impl PartialEq for salmong_core::ids::Tick
+impl PartialEq for salmong_core::input::Fit
+impl PartialEq for salmong_core::input::Pointer
+impl PartialEq for salmong_core::input::PointerEvent
+impl PartialEq for salmong_core::input::World
 impl PartialEq for salmong_core::network::NetworkError
 impl PartialEq for salmong_core::network::NetworkSnapshot
 impl PartialEq for salmong_core::replay::Replay
@@ -261,6 +288,10 @@ impl StructuralPartialEq for salmong_core::ids::PassengerId
 impl StructuralPartialEq for salmong_core::ids::RouteId
 impl StructuralPartialEq for salmong_core::ids::StationId
 impl StructuralPartialEq for salmong_core::ids::Tick
+impl StructuralPartialEq for salmong_core::input::Fit
+impl StructuralPartialEq for salmong_core::input::Pointer
+impl StructuralPartialEq for salmong_core::input::PointerEvent
+impl StructuralPartialEq for salmong_core::input::World
 impl StructuralPartialEq for salmong_core::network::NetworkError
 impl StructuralPartialEq for salmong_core::network::NetworkSnapshot
 impl StructuralPartialEq for salmong_core::replay::Replay
@@ -291,6 +322,10 @@ method salmong_core::balance::Balance::bench()
 method salmong_core::balance::Balance::mvp()
 method salmong_core::ids::Dir::index(self)
 method salmong_core::ids::Dir::reverse(self)
+method salmong_core::input::Fit::new(window, scenario)
+method salmong_core::input::Fit::world(self, px)
+method salmong_core::input::Pointer::apply(self, ev, scenario, net)
+method salmong_core::input::Pointer::trail(self)
 method salmong_core::network::NetworkSnapshot::new(rev, shapes, routes)
 method salmong_core::network::NetworkSnapshot::next_stop(self, route, dir, at)
 method salmong_core::network::NetworkSnapshot::rev(self)
@@ -319,6 +354,7 @@ method salmong_core::scenario::Shape::from_index(index)
 method salmong_core::scenario::Shape::index(self)
 method salmong_core::sim::Sim::new(scenario, seed, balance)
 method salmong_core::sim::Sim::queue(self, cmd)
+method salmong_core::sim::Sim::snapshot(self)
 method salmong_core::sim::Sim::state_bytes(self)
 method salmong_core::sim::Sim::state_hash(self)
 method salmong_core::sim::Sim::step(self, events)
@@ -326,6 +362,7 @@ method salmong_core::sim::Sim::view(self)
 mod salmong_core
 mod salmong_core::balance
 mod salmong_core::ids
+mod salmong_core::input
 mod salmong_core::network
 mod salmong_core::replay
 mod salmong_core::rng
@@ -340,6 +377,9 @@ struct salmong_core::ids::PassengerId
 struct salmong_core::ids::RouteId
 struct salmong_core::ids::StationId
 struct salmong_core::ids::Tick
+struct salmong_core::input::Fit
+struct salmong_core::input::Pointer
+struct salmong_core::input::World
 struct salmong_core::network::NetworkSnapshot
 struct salmong_core::replay::Replay
 struct salmong_core::replay::ReplayHeader
@@ -361,6 +401,10 @@ trait salmong_core::routing::Router
 trait_item salmong_core::routing::Router::solve
 variant salmong_core::ids::Dir::Back
 variant salmong_core::ids::Dir::Fwd
+variant salmong_core::input::PointerEvent::Cancel
+variant salmong_core::input::PointerEvent::Move
+variant salmong_core::input::PointerEvent::Press
+variant salmong_core::input::PointerEvent::Release
 variant salmong_core::network::NetworkError::RepeatedStop
 variant salmong_core::network::NetworkError::RouteTooShort
 variant salmong_core::network::NetworkError::TooManyRoutes

@@ -4460,6 +4460,7 @@ name = "salmong-game"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "salmong-core",
  "wasm-bindgen-test",
 ]
 
