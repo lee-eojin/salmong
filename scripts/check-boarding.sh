@@ -24,10 +24,13 @@ rows=(
   'SplitTransfer INVARIANT Conserved'
   'RestartEditedOnly PROPERTY AlightBeforeBoard'
   'DeliverAnywhere PROPERTY NoWrongDelivery'
+  'BoardAnyBus PROPERTY NoPingPong'
+  'HeadOfLine TEMPORAL Delivery'
+  'StuckOffRoute TEMPORAL BusProgress'
 )
 rm -rf target/boarding
 mkdir -p target/boarding
-cp spec/Boarding.tla spec/Boarding.safety.cfg spec/Boarding.fault.cfg target/boarding/
+cp spec/Boarding.tla spec/Boarding.safety.cfg spec/Boarding.fault.cfg spec/Boarding.live.cfg target/boarding/
 cd target/boarding
 model_faults=$(sed -nE 's/.*Fault = "([^"]+)".*/\1/p' Boarding.tla | sort -u)
 table_faults=$(printf '%s\n' "${rows[@]}" | awk '{print $1}' | sort -u)
@@ -40,44 +43,68 @@ check_version() {
   }
 }
 
-flags=(-workers auto)
-[[ $mode != --simulate ]] || flags=(-simulate num=50000 -depth 200 -seed 1)
-log=Boarding.safety.log
-rc=0
-"${runner[@]}" "${flags[@]}" -metadir safety.states -config Boarding.safety.cfg Boarding.tla >"$log" 2>&1 || rc=$?
-check_version "$log" safety 0 "$rc"
-pass=false
-if [[ $rc == 0 ]]; then
-  if [[ $mode == --simulate ]]; then
-    grep -Eq '^Progress: .* states checked\.$' "$log" && pass=true
-  elif grep -Fxq 'Model checking completed. No error has been found.' "$log" &&
-       grep -Eq '[0-9,]+ states generated, [0-9,]+ distinct states found, 0 states left on queue\.' "$log"; then
-    pass=true
+check_clean() {
+  local name=$1 count=$2
+  local log=Boarding.$name.log rc=0 pass=false
+  local flags=(-workers auto)
+  if [[ $name == live ]]; then
+    flags+=(-lncheck final)
   fi
-fi
-if [[ $pass != true ]]; then
-  tail -n 40 "$log" >&2
-  fail "safety: expected rc 0 and completion evidence, actual rc $rc"
-fi
-if [[ $mode == --simulate ]]; then
-  grep -E '^Progress: .* states checked\.$' "$log" | sed 's/^/ok: /'
-else
-  grep -E '[0-9,]+ states generated, [0-9,]+ distinct states found, 0 states left on queue\.' "$log" | sed 's/^/ok: /'
-fi
-grep '^Finished in' "$log" | sed 's/^/ok: /'
+  [[ $mode != --simulate ]] || flags=(-simulate num=$count -depth 200 -seed 1)
+  "${runner[@]}" "${flags[@]}" -metadir "$name.states" -config "Boarding.$name.cfg" Boarding.tla >"$log" 2>&1 || rc=$?
+  check_version "$log" "$name" 0 "$rc"
+  if [[ $rc == 0 ]]; then
+    if [[ $mode == --simulate ]]; then
+      grep -Eq '^Progress: .* states checked\.$' "$log" && pass=true
+    elif grep -Fxq 'Model checking completed. No error has been found.' "$log" &&
+         grep -Eq '[0-9,]+ states generated, [0-9,]+ distinct states found, 0 states left on queue\.' "$log"; then
+      if [[ $name != live ]] || grep -Eq '^Checking .*temporal properties for the complete state space with [0-9,]+ total distinct states at' "$log"; then
+        pass=true
+      fi
+    fi
+  fi
+  if [[ $pass != true ]]; then
+    tail -n 40 "$log" >&2
+    fail "$name: expected rc 0 and completion evidence, actual rc $rc"
+  fi
+  if [[ $mode == --simulate ]]; then
+    grep -E '^Progress: .* states checked\.$' "$log" | sed 's/^/ok: /'
+  else
+    grep -E '[0-9,]+ states generated, [0-9,]+ distinct states found, 0 states left on queue\.' "$log" | sed 's/^/ok: /'
+  fi
+  grep '^Finished in' "$log" | sed 's/^/ok: /'
+}
+
+check_clean safety 50000
+check_clean live 1000
 
 for row in "${rows[@]}"; do
   read -r fault keyword property <<<"$row"
+  if [[ $keyword == TEMPORAL && $mode == --simulate ]]; then
+    echo "ok: skipped $fault $property, needs exhaustive TLC"
+    continue
+  fi
   cfg=$fault.$property.cfg
   log=$fault.$property.log
-  sed -e "s/^  Fault = .*/  Fault = \"$fault\"/" -e "s/^INVARIANT CapacitySafe$/$keyword $property/" Boarding.fault.cfg >"$cfg"
+  if [[ $keyword == TEMPORAL ]]; then
+    sed -e "s/^  Fault = .*/  Fault = \"$fault\"/" \
+        -e "s/^  MaxPassengers = .*/  MaxPassengers = 2/" \
+        -e "s/^PROPERTY .*/PROPERTY $property/" Boarding.live.cfg >"$cfg"
+  else
+    sed -e "s/^  Fault = .*/  Fault = \"$fault\"/" -e "s/^INVARIANT CapacitySafe$/$keyword $property/" Boarding.fault.cfg >"$cfg"
+  fi
   expected=12
   error="Error: Invariant $property is violated."
   if [[ $keyword == PROPERTY ]]; then
     expected=13
     error="Error: Action property $property is violated."
   fi
+  if [[ $keyword == TEMPORAL ]]; then
+    expected=13
+    error="Error: Temporal properties were violated."
+  fi
   flags=(-workers auto)
+  [[ $keyword != TEMPORAL ]] || flags+=(-lncheck final)
   [[ $mode != --simulate ]] || flags=(-simulate num=1000000 -depth 24 -seed 1)
   rc=0
   "${runner[@]}" "${flags[@]}" -metadir "$fault.$property.states" -config "$cfg" Boarding.tla >"$log" 2>&1 || rc=$?

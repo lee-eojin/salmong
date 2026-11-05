@@ -154,21 +154,51 @@ listed one by one, not `2d`, which adds `webgl2` (Q2) and gilrs and wayland, whi
   `Board(b)` while `b` holds a rider who should alight under the current `Table[network]`, whichever route the last edit
   touched), `TransferSound` (bus to queue at that bus's stop, in one step).
 
-Liveness, under weak fairness per bus on each action, once edits stop (`edits` is bounded, `EditNetwork` is not fair).
+Liveness uses `LiveSpec == Spec /\ \A b \in Buses : WF_vars(BusStep(b))`: one weak fairness
+condition per bus. Except when parked, exactly one of its five actions is enabled. If a bus stops stepping, its
+phase and seats freeze and queues eventually stop changing, so one action stays enabled. Fairness on the combined
+step is therefore equivalent to fairness on each action. Neither spawning nor network editing is fair.
+Edits are bounded, so every behavior eventually uses a final network, even if it never edits.
 `Board(b)` takes the oldest eligible passenger and `Depart(b)` is disabled while one fits, so per-passenger fairness is
 not needed. The spec has no overflow: game over ends these guarantees.
-- `Delivery`: after the last edit, a passenger with finite potential under the final table is eventually delivered.
-- `BusProgress`: every bus leaves every stop. `NoPingPong`: potential (section 2) falls on every `Board` and hop and stays
-  equal on `Alight`, so no cycles.
+
+Potential reads only `Table[network][want[p]]` for spawned passengers:
+
+| Passenger location | Potential |
+|---|---|
+| Delivered | 0 |
+| Waiting at stop `st` | `cost[st]` |
+| On a retiring bus `b` | `cost[busAt[b]]` |
+| On an off-route bus `b` | `cost[busAt[b]]` |
+| On any other bus `b` | `ride[<<BusRoute[b], dir[b], busAt[b]>>]` |
+
+For moving buses, `busAt[b]` is the segment's destination. Off-route and retiring riders alight there.
+`Owed(p)` means `p <= spawned /\ p \notin delivered /\ Potential(p) < Inf`, in that evaluation order.
+
+- `Delivery == \A p \in Passengers : []<>~Owed(p)`: no passenger stays owed forever. A finite-potential
+  passenger under the final table must be delivered; stranded passengers with infinite potential are exempt.
+- `BusProgress == \A b \in Buses : []<>(busPhase[b] \in {"Moving", "Parked"})`: every bus leaves every stop,
+  including retirement to inventory.
+- `NoPingPong`: when the network is unchanged, every existing passenger's potential drops by exactly `Transfer`
+  on boarding, exactly `Hop` when its bus changes stop, and zero otherwise. Infinite potential stays infinite.
+  Network edits may raise potential, and a newly spawned passenger is excluded from that step.
+
+The live config keeps `MaxEdits = 1`. At two edits, `N0 -> N4 -> N0` can park bus 2 permanently and restore its
+route without a bus, violating delivery. The game prevents this through free-bus validation on `AddRoute`, but
+`AddRoute` and `AssignBus` are not modeled and `BusRoute` is fixed. The safety config is unaffected.
 
 Start with 4 stations, 2 routes, 2 buses, capacity 2, 3 passengers, 1 edit. Arrivals are bounded by `MaxPassengers`;
-liveness under unbounded arrivals would need a separate FIFO argument. M1.1 uses no symmetry: hand-listed networks
+liveness under unbounded arrivals would need a separate FIFO argument. No config uses symmetry: hand-listed networks
 make station symmetry unsound, buses have fixed routes, and passenger ids record spawn order.
+TLC can miss liveness violations under symmetry.
 `Boarding.fault.cfg` is the template that `scripts/check-boarding.sh` rewrites. One fault run checks one property,
 so an invariant cannot mask an action property. The faults are `BoardAtCapacity`, `BoardBeforeAlight`, `SplitTransfer`,
-`RestartEditedOnly`, and `DeliverAnywhere`; each must give a counterexample on its own property.
+`RestartEditedOnly`, `DeliverAnywhere`, `BoardAnyBus`, `HeadOfLine`, and `StuckOffRoute`; each must give a
+counterexample on its own property. Temporal rows use `Boarding.live.cfg`. `HeadOfLine` proves the run reaches a
+disconnected final network, where a stranded passenger can block an owed passenger.
 Passing exhaustive runs report completed exploration and state count. Run: `scripts/check-boarding.sh`.
-Inside the sandbox, run `scripts/check-boarding.sh --simulate`; simulation does not prove exhaustive safety.
+Inside the sandbox, run `scripts/check-boarding.sh --simulate`; simulation does not prove exhaustive safety or liveness.
+Temporal fault rows need exhaustive TLC and are skipped in simulation.
 The script checks the hand-derived routing golden assertions before exploring actions. `Conserved` counts every
 queue and onboard position separately, plus delivery, against the independent spawn ledger.
 
