@@ -65,12 +65,14 @@ scripts/check-web-build.sh
 scripts/check-no-comments.sh
 scripts/check-boarding.sh
 scripts/check-trace.sh
+cargo bench --locked -p salmong-core --bench step
 ```
 
 - `scripts/check-toolchain.sh` fails if `rustc` is not 1.99.1, and then runs `cargo check` for wasm32.
 - `scripts/check-web-build.sh` builds the release wasm and confirms that WebGPU is the only web backend.
 - `scripts/check-boarding.sh` fails on a different TLC build, a safety or liveness violation or deadlock, incomplete exploration, mismatched fault names, or a deliberate fault that does not break its expected property. Use `--simulate` for the sandbox self-check; it is not exhaustive.
 - `scripts/check-trace.sh` runs `salmong-oracle trace` on seeds 1 to 4 and checks each trace with `spec/BoardingTrace.tla`. It fails on a different TLC build, a sample trace TLC does not accept in full, or a dropped, swapped or altered trace that TLC does not reject with a deadlock. It needs `TLA2TOOLS` or `tlc`, like `check-boarding.sh`.
+- `cargo bench -p salmong-core --bench step` runs the M2.9 workload to 5,000 alive and prints peak `step` and `solve` times. It fails if the cap is missed. The record is in [docs/m2.9-perf.md](docs/m2.9-perf.md).
 - `scripts/check-no-comments.sh` fails if a source file holds a code comment. `cargo test` runs the same check.
 - `scripts/check-mutants.sh [base]` runs cargo-mutants on the `.rs` lines changed since `base` (default `origin/main`, or `--all` for every crate but salmong-game) and fails on a missed mutant that `mutants-allow.toml` does not list with a reason. It counts a timeout as caught and skips when no `.rs` file changed. CI runs it on every pull request.
 - `scripts/check-unit-prs.sh` fails if an open PR's head is not `unit/<unit>` or two open PRs share one unit. CI runs it on every pull request.

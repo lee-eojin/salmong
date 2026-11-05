@@ -23,4 +23,15 @@ impl Balance {
             overflow_limit: 1350,
         }
     }
+
+    pub const fn bench() -> Self {
+        Self {
+            travel_ticks: 1,
+            start_buses: 32,
+            service_ticks: 1,
+            spawn_unit: 2_000,
+            overflow_limit: u32::MAX,
+            ..Self::mvp()
+        }
+    }
 }
