@@ -7,6 +7,9 @@ use crate::rng::Pcg32;
 use crate::routing::{DijkstraRouter, RouteTable, Router, board_bit};
 use crate::scenario::{RampPoint, Scenario, Shape};
 use crate::spawn::rate;
+use crate::trace::Action;
+#[cfg(feature = "trace")]
+use crate::trace::{BusState, Phase, TraceState, TraceStep};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum BusMode {
@@ -114,6 +117,14 @@ pub struct Sim {
     score: u64,
     overflow: Vec<u32>,
     mode: SimMode,
+    #[cfg(feature = "trace")]
+    trace: Option<Recorder>,
+}
+
+#[cfg(feature = "trace")]
+struct Recorder {
+    last: TraceState,
+    steps: Vec<TraceStep>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -176,6 +187,8 @@ impl Sim {
             score: 0,
             overflow,
             mode: SimMode::Running,
+            #[cfg(feature = "trace")]
+            trace: None,
         }
     }
 
@@ -320,6 +333,10 @@ impl Sim {
                 self.next_passenger += 1;
                 let station = StationId(st as u16);
                 self.enqueue(station, Passenger { id, want });
+                self.note(Action::Spawn {
+                    passenger: id,
+                    want,
+                });
                 alive += 1;
                 events.push(SimEvent::Spawned {
                     passenger: id,
@@ -346,6 +363,7 @@ impl Sim {
                 bus.timer = service;
             }
         }
+        self.note(Action::EditNetwork);
     }
 
     pub fn state_bytes(&self) -> Vec<u8> {
@@ -592,7 +610,8 @@ impl Sim {
     fn move_buses(&mut self, tick: Tick) {
         let travel = self.balance.travel_ticks;
         let service = self.balance.service_ticks;
-        for bus in &mut self.buses {
+        for b in 0..self.buses.len() {
+            let bus = &mut self.buses[b];
             let BusPhase::Moving { from, to, progress } = bus.phase else {
                 continue;
             };
@@ -602,6 +621,8 @@ impl Sim {
                 bus.last_arrival = Some((to, tick));
                 bus.phase = BusPhase::Alighting;
                 bus.timer = service;
+                let id = bus.id;
+                self.note(Action::Move { bus: id });
             } else {
                 bus.phase = BusPhase::Moving { from, to, progress };
             }
@@ -634,14 +655,20 @@ impl Sim {
                     station,
                 });
             }
+            self.note(Action::Alight {
+                bus: id,
+                passenger: p.id,
+            });
             if self.next_alighter(net, b).is_some() {
                 return;
             }
         }
         let on_route = Self::stop_index(net, &self.buses[b]).is_some();
         let bus = &mut self.buses[b];
+        let id = bus.id;
         let BusMode::Active { route, dir } = &mut bus.mode else {
             bus.phase = BusPhase::Boarding;
+            self.note(Action::EndAlight { bus: id });
             return;
         };
         if on_route {
@@ -649,6 +676,7 @@ impl Sim {
                 *dir = dir.reverse();
             }
             bus.phase = BusPhase::Boarding;
+            self.note(Action::EndAlight { bus: id });
             return;
         }
         let stops = net.stops(*route).expect("active route");
@@ -670,6 +698,7 @@ impl Sim {
             to: stops[i],
             progress: 0,
         };
+        self.note(Action::EndAlight { bus: id });
     }
 
     fn board_bus(&mut self, net: &NetworkSnapshot, b: usize, events: &mut Vec<SimEvent>) {
@@ -687,10 +716,15 @@ impl Sim {
                 .expect("eligible head");
             let bus = &mut self.buses[b];
             bus.riders.push(p);
+            let id = bus.id;
             events.push(SimEvent::Boarded {
-                bus: bus.id,
+                bus: id,
                 passenger: p.id,
                 station: at,
+            });
+            self.note(Action::Board {
+                bus: id,
+                passenger: p.id,
             });
             if self.next_boarder(b).is_some() {
                 return;
@@ -708,6 +742,8 @@ impl Sim {
             to,
             progress: 0,
         };
+        let id = bus.id;
+        self.note(Action::Depart { bus: id });
     }
 
     fn park_retired(&mut self) {
@@ -715,5 +751,134 @@ impl Sim {
         self.buses
             .retain(|b| !(b.mode == BusMode::Retiring && b.phase == BusPhase::Boarding));
         self.free_buses += (before - self.buses.len()) as u16;
+    }
+
+    #[cfg(not(feature = "trace"))]
+    fn note(&mut self, _: Action) {}
+
+    #[cfg(feature = "trace")]
+    fn note(&mut self, action: Action) {
+        let Some(mut rec) = self.trace.take() else {
+            return;
+        };
+        let after = self.project(&rec.last, action);
+        let before = std::mem::replace(&mut rec.last, after.clone());
+        rec.steps.push(TraceStep {
+            tick: self.tick,
+            action,
+            before,
+            after,
+        });
+        self.trace = Some(rec);
+    }
+
+    #[cfg(feature = "trace")]
+    pub fn start_trace(&mut self) {
+        let wants = (0..self.next_passenger)
+            .filter_map(|id| self.want_of(PassengerId(id)))
+            .collect();
+        let base = TraceState {
+            network: Vec::new(),
+            buses: Vec::new(),
+            queues: Vec::new(),
+            delivered: Vec::new(),
+            edits: 0,
+            wants,
+        };
+        let last = self.project(&base, Action::EditNetwork);
+        let last = TraceState { edits: 0, ..last };
+        self.trace = Some(Recorder {
+            last,
+            steps: Vec::new(),
+        });
+    }
+
+    #[cfg(feature = "trace")]
+    pub fn take_trace(&mut self) -> Vec<TraceStep> {
+        self.trace
+            .as_mut()
+            .map(|rec| std::mem::take(&mut rec.steps))
+            .unwrap_or_default()
+    }
+
+    #[cfg(feature = "trace")]
+    fn want_of(&self, id: PassengerId) -> Option<Shape> {
+        let queued = self.queues.iter().flatten().flatten().map(|&(_, p)| p);
+        let riding = self.buses.iter().flat_map(|b| b.riders.iter().copied());
+        queued.chain(riding).find(|p| p.id == id).map(|p| p.want)
+    }
+
+    #[cfg(feature = "trace")]
+    fn project(&self, prev: &TraceState, action: Action) -> TraceState {
+        let slots = self
+            .buses
+            .iter()
+            .map(|b| usize::from(b.id.0) + 1)
+            .max()
+            .unwrap_or(0)
+            .max(prev.buses.len());
+        let buses = (0..slots)
+            .filter_map(|i| {
+                let Some(bus) = self.buses.iter().find(|b| usize::from(b.id.0) == i) else {
+                    return prev.buses.get(i).cloned();
+                };
+                let (dir, retiring) = match bus.mode {
+                    BusMode::Active { dir, .. } => (dir, false),
+                    BusMode::Retiring => (prev.buses.get(i).map_or(Dir::Fwd, |b| b.dir), true),
+                };
+                let (phase, at) = match bus.phase {
+                    BusPhase::Moving { to, .. } => (Phase::Moving, to),
+                    BusPhase::Alighting => (Phase::Alighting, bus.at),
+                    BusPhase::Boarding if retiring => (Phase::Parked, bus.at),
+                    BusPhase::Boarding => (Phase::Boarding, bus.at),
+                };
+                Some(BusState {
+                    at,
+                    dir,
+                    phase,
+                    retiring,
+                    riders: bus.riders.iter().map(|p| p.id).collect(),
+                })
+            })
+            .collect::<Vec<_>>();
+        let queues = self
+            .queues
+            .iter()
+            .map(|qs| {
+                let mut q = qs.iter().flatten().copied().collect::<Vec<_>>();
+                q.sort_by_key(|&(seq, _)| seq);
+                q.into_iter().map(|(_, p)| p.id).collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+        let delivered = (0..self.next_passenger)
+            .map(PassengerId)
+            .filter(|id| {
+                !queues.iter().flatten().any(|p| p == id)
+                    && !self
+                        .buses
+                        .iter()
+                        .flat_map(|b| &b.riders)
+                        .any(|p| p.id == *id)
+            })
+            .collect();
+        let mut wants = prev.wants.clone();
+        let mut edits = prev.edits;
+        match action {
+            Action::Spawn { want, .. } => wants.push(want),
+            Action::EditNetwork => edits += 1,
+            _ => {}
+        }
+        TraceState {
+            network: self
+                .routes
+                .iter()
+                .map(|r| r.clone().unwrap_or_default())
+                .collect(),
+            buses,
+            queues,
+            delivered,
+            edits,
+            wants,
+        }
     }
 }

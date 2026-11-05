@@ -9,6 +9,7 @@ crate-type = ["rlib", "cdylib"]
 
 [features]
 fixtures = []
+trace = []
 
 [dev-dependencies]
-salmong-core = { path = ".", features = ["fixtures"] }
+salmong-core = { path = ".", features = ["fixtures", "trace"] }

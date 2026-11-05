@@ -19,6 +19,8 @@ enum salmong_core::sim::BusPhase
 enum salmong_core::sim::Command
 enum salmong_core::sim::SimEvent
 enum salmong_core::sim::SimMode
+enum salmong_core::trace::Action
+enum salmong_core::trace::Phase
 field salmong_core::balance::Balance::capacity
 field salmong_core::balance::Balance::max_alive
 field salmong_core::balance::Balance::overflow_limit
@@ -70,6 +72,21 @@ field salmong_core::sim::SimView::route_count
 field salmong_core::sim::SimView::score
 field salmong_core::sim::SimView::table_rev
 field salmong_core::sim::SimView::tick
+field salmong_core::trace::BusState::at
+field salmong_core::trace::BusState::dir
+field salmong_core::trace::BusState::phase
+field salmong_core::trace::BusState::retiring
+field salmong_core::trace::BusState::riders
+field salmong_core::trace::TraceState::buses
+field salmong_core::trace::TraceState::delivered
+field salmong_core::trace::TraceState::edits
+field salmong_core::trace::TraceState::network
+field salmong_core::trace::TraceState::queues
+field salmong_core::trace::TraceState::wants
+field salmong_core::trace::TraceStep::action
+field salmong_core::trace::TraceStep::after
+field salmong_core::trace::TraceStep::before
+field salmong_core::trace::TraceStep::tick
 fn salmong_core::replay::hash_sequence(scenario, seed, balance, body, ticks)
 fn salmong_core::replay::run(scenario, pack_sha256, seed, balance, replay, ticks)
 fn salmong_core::routing::board_bit(route, dir)
@@ -102,6 +119,11 @@ impl Clone for salmong_core::sim::Passenger
 impl Clone for salmong_core::sim::SimEvent
 impl Clone for salmong_core::sim::SimMode
 impl Clone for salmong_core::sim::SimView
+impl Clone for salmong_core::trace::Action
+impl Clone for salmong_core::trace::BusState
+impl Clone for salmong_core::trace::Phase
+impl Clone for salmong_core::trace::TraceState
+impl Clone for salmong_core::trace::TraceStep
 impl Copy for salmong_core::balance::Balance
 impl Copy for salmong_core::ids::BusId
 impl Copy for salmong_core::ids::Dir
@@ -118,6 +140,8 @@ impl Copy for salmong_core::scenario::Shape
 impl Copy for salmong_core::scenario::StationSpec
 impl Copy for salmong_core::sim::Passenger
 impl Copy for salmong_core::sim::SimMode
+impl Copy for salmong_core::trace::Action
+impl Copy for salmong_core::trace::Phase
 impl Debug for salmong_core::balance::Balance
 impl Debug for salmong_core::ids::BusId
 impl Debug for salmong_core::ids::Dir
@@ -146,6 +170,11 @@ impl Debug for salmong_core::sim::Passenger
 impl Debug for salmong_core::sim::SimEvent
 impl Debug for salmong_core::sim::SimMode
 impl Debug for salmong_core::sim::SimView
+impl Debug for salmong_core::trace::Action
+impl Debug for salmong_core::trace::BusState
+impl Debug for salmong_core::trace::Phase
+impl Debug for salmong_core::trace::TraceState
+impl Debug for salmong_core::trace::TraceStep
 impl Eq for salmong_core::balance::Balance
 impl Eq for salmong_core::ids::BusId
 impl Eq for salmong_core::ids::Dir
@@ -174,6 +203,11 @@ impl Eq for salmong_core::sim::Passenger
 impl Eq for salmong_core::sim::SimEvent
 impl Eq for salmong_core::sim::SimMode
 impl Eq for salmong_core::sim::SimView
+impl Eq for salmong_core::trace::Action
+impl Eq for salmong_core::trace::BusState
+impl Eq for salmong_core::trace::Phase
+impl Eq for salmong_core::trace::TraceState
+impl Eq for salmong_core::trace::TraceStep
 impl Ord for salmong_core::ids::BusId
 impl Ord for salmong_core::ids::Dir
 impl Ord for salmong_core::ids::PassengerId
@@ -208,6 +242,11 @@ impl PartialEq for salmong_core::sim::Passenger
 impl PartialEq for salmong_core::sim::SimEvent
 impl PartialEq for salmong_core::sim::SimMode
 impl PartialEq for salmong_core::sim::SimView
+impl PartialEq for salmong_core::trace::Action
+impl PartialEq for salmong_core::trace::BusState
+impl PartialEq for salmong_core::trace::Phase
+impl PartialEq for salmong_core::trace::TraceState
+impl PartialEq for salmong_core::trace::TraceStep
 impl PartialOrd for salmong_core::ids::BusId
 impl PartialOrd for salmong_core::ids::Dir
 impl PartialOrd for salmong_core::ids::PassengerId
@@ -243,6 +282,11 @@ impl StructuralPartialEq for salmong_core::sim::Passenger
 impl StructuralPartialEq for salmong_core::sim::SimEvent
 impl StructuralPartialEq for salmong_core::sim::SimMode
 impl StructuralPartialEq for salmong_core::sim::SimView
+impl StructuralPartialEq for salmong_core::trace::Action
+impl StructuralPartialEq for salmong_core::trace::BusState
+impl StructuralPartialEq for salmong_core::trace::Phase
+impl StructuralPartialEq for salmong_core::trace::TraceState
+impl StructuralPartialEq for salmong_core::trace::TraceStep
 method salmong_core::balance::Balance::mvp()
 method salmong_core::ids::Dir::index(self)
 method salmong_core::ids::Dir::reverse(self)
@@ -288,6 +332,7 @@ mod salmong_core::routing
 mod salmong_core::scenario
 mod salmong_core::sim
 mod salmong_core::spawn
+mod salmong_core::trace
 struct salmong_core::balance::Balance
 struct salmong_core::ids::BusId
 struct salmong_core::ids::PassengerId
@@ -308,6 +353,9 @@ struct salmong_core::sim::BusView
 struct salmong_core::sim::Passenger
 struct salmong_core::sim::Sim
 struct salmong_core::sim::SimView
+struct salmong_core::trace::BusState
+struct salmong_core::trace::TraceState
+struct salmong_core::trace::TraceStep
 trait salmong_core::routing::Router
 trait_item salmong_core::routing::Router::solve
 variant salmong_core::ids::Dir::Back
@@ -358,3 +406,14 @@ variant salmong_core::sim::SimEvent::OverflowStarted
 variant salmong_core::sim::SimEvent::Spawned
 variant salmong_core::sim::SimMode::Over
 variant salmong_core::sim::SimMode::Running
+variant salmong_core::trace::Action::Alight
+variant salmong_core::trace::Action::Board
+variant salmong_core::trace::Action::Depart
+variant salmong_core::trace::Action::EditNetwork
+variant salmong_core::trace::Action::EndAlight
+variant salmong_core::trace::Action::Move
+variant salmong_core::trace::Action::Spawn
+variant salmong_core::trace::Phase::Alighting
+variant salmong_core::trace::Phase::Boarding
+variant salmong_core::trace::Phase::Moving
+variant salmong_core::trace::Phase::Parked

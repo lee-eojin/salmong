@@ -9,7 +9,7 @@ name = "salmong-oracle"
 path = "src/main.rs"
 
 [dependencies]
-salmong-core = { path = "../salmong-core" }
+salmong-core = { path = "../salmong-core", features = ["trace"] }
 salmong-pack = { path = "../salmong-pack" }
 
 [dev-dependencies]
