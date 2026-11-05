@@ -39,18 +39,6 @@ mutant = "crates/salmong-oracle/src/generate.rs: replace < with <= in generate_s
 reason = "No reachable seed places exactly three stations, so the boundary of the fewer-than-three guard is unobservable from the public API."
 
 [[allow]]
-mutant = "crates/salmong-oracle/src/main.rs: replace main -> ExitCode with Default::default()"
-reason = "The CLI is a thin argument parser over pack_bytes, which pack_sha tests through the library. No test spawns the binary."
-
-[[allow]]
-mutant = "crates/salmong-oracle/src/main.rs: replace != with == in main"
-reason = "The CLI is a thin argument parser over pack_bytes, which pack_sha tests through the library. No test spawns the binary."
-
-[[allow]]
-mutant = "crates/salmong-oracle/src/main.rs: replace == with != in main"
-reason = "The CLI is a thin argument parser over pack_bytes, which pack_sha tests through the library. No test spawns the binary."
-
-[[allow]]
 mutant = "crates/salmong-core/src/replay.rs: replace wasm_abi::empty3_scenario -> Scenario with Default::default()"
 reason = "wasm_abi is cfg(target_arch = wasm32) only. Host cargo-mutants never links it; scripts/check-determinism.mjs loads the wasm and checks the three hand-table hashes."
 

@@ -7,3 +7,4 @@ pub mod routing;
 pub mod scenario;
 pub mod sim;
 pub mod spawn;
+pub mod trace;

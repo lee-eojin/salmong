@@ -3,8 +3,11 @@ const salmong_oracle::bots::GAME_TICKS
 const salmong_oracle::generate::GEN
 const salmong_oracle::generate::MAP_H
 const salmong_oracle::generate::MAP_W
+const salmong_oracle::trace::NETWORKS
+const salmong_oracle::trace::TRACE_TICKS
 enum salmong_oracle::GenerateError
 enum salmong_oracle::generate::GenerateError
+enum salmong_oracle::trace::Corruption
 field salmong_oracle::bots::GameResult::alive
 field salmong_oracle::bots::GameResult::commands
 field salmong_oracle::bots::GameResult::delivered
@@ -24,27 +27,37 @@ fn salmong_oracle::h32::r(seed, p, k, a)
 fn salmong_oracle::pack_bytes(pack_seed, count)
 fn salmong_oracle::pick(lo, hi, v)
 fn salmong_oracle::r(seed, p, k, a)
+fn salmong_oracle::trace::balance()
+fn salmong_oracle::trace::corrupt(steps, kind)
+fn salmong_oracle::trace::sample(seed)
+fn salmong_oracle::trace::tla_module(steps, capacity)
 impl Bot for salmong_oracle::bots::Greedy
 impl Bot for salmong_oracle::bots::Idle
 impl Clone for salmong_oracle::GenerateError
 impl Clone for salmong_oracle::bots::GameResult
 impl Clone for salmong_oracle::generate::GenerateError
+impl Clone for salmong_oracle::trace::Corruption
 impl Copy for salmong_oracle::GenerateError
 impl Copy for salmong_oracle::bots::GameResult
 impl Copy for salmong_oracle::generate::GenerateError
+impl Copy for salmong_oracle::trace::Corruption
 impl Debug for salmong_oracle::GenerateError
 impl Debug for salmong_oracle::bots::GameResult
 impl Debug for salmong_oracle::generate::GenerateError
+impl Debug for salmong_oracle::trace::Corruption
 impl Eq for salmong_oracle::GenerateError
 impl Eq for salmong_oracle::bots::GameResult
 impl Eq for salmong_oracle::generate::GenerateError
+impl Eq for salmong_oracle::trace::Corruption
 impl PartialEq for salmong_oracle::GenerateError
 impl PartialEq for salmong_oracle::bots::GameResult
 impl PartialEq for salmong_oracle::generate::GenerateError
+impl PartialEq for salmong_oracle::trace::Corruption
 impl Router for salmong_oracle::router::ReferenceRouter
 impl StructuralPartialEq for salmong_oracle::GenerateError
 impl StructuralPartialEq for salmong_oracle::bots::GameResult
 impl StructuralPartialEq for salmong_oracle::generate::GenerateError
+impl StructuralPartialEq for salmong_oracle::trace::Corruption
 method salmong_oracle::bots::GameResult::delivered_ratio_at_least(self, num, den)
 method salmong_oracle::bots::GameResult::outlives(self, baseline)
 mod salmong_oracle
@@ -52,6 +65,7 @@ mod salmong_oracle::bots
 mod salmong_oracle::generate
 mod salmong_oracle::h32
 mod salmong_oracle::router
+mod salmong_oracle::trace
 struct salmong_oracle::bots::GameResult
 struct salmong_oracle::bots::Greedy
 struct salmong_oracle::bots::Idle
@@ -60,3 +74,6 @@ trait salmong_oracle::bots::Bot
 trait_item salmong_oracle::bots::Bot::act
 variant salmong_oracle::GenerateError::TooFewStations
 variant salmong_oracle::generate::GenerateError::TooFewStations
+variant salmong_oracle::trace::Corruption::Alter
+variant salmong_oracle::trace::Corruption::Drop
+variant salmong_oracle::trace::Corruption::Swap
