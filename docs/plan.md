@@ -234,6 +234,8 @@ normalized: `parse_pack` requires `write_pack(parse(x)) == x`.
 - `stations` rows are `[x, y, shape, at_tick, weight]` in spawn order. `ramp` rows are `[tick, rate]`, ascending from tick 0.
 - `version` changes with the format; the loader accepts exactly 1. `gen` changes when a seed would give different data.
   Packs are regenerated, never migrated. Replay headers identify the pack by digest (section 3).
+- `Scenario::validate` checks, in order: `ramp` is not empty, starts at tick 0, has strictly ascending ticks, and has no falling `rate`, so `rate(t)` stays in `u64`; there are 3 to 64 `stations`, `at_tick` never falls, exactly 3 stations have `at_tick` 0 and their shapes are 0, 1 and 2 in any order; `x < w` and `y < h`; every pair has squared distance >= 16; shape 3 needs `at_tick` >= 8400.
+- `parse_pack` also requires at least one scenario and each `id` equal to its position. `w`, `h`, `x` and `y` fit `u16`, `shape` fits `u8`, and every other integer fits `u32`.
 - Bend's limits: [no `U64`](https://github.com/bendlang/bend/blob/4024f04/README.md#L231), so both sides use a stateless `h32`, not core's PCG; [F32 printing differs by lane](https://github.com/bendlang/bend/blob/4024f04/WONTFIX.txt#L54), so no floats;
   [deep recursion overflows on JS](https://github.com/bendlang/bend/blob/4024f04/WONTFIX.txt#L147), so print line by line; [calls must be balanced](https://github.com/bendlang/bend/blob/4024f04/README.md#L240), so `count` is a power of two.
 
