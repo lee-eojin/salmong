@@ -70,5 +70,8 @@ scripts/check-boarding.sh
 - `scripts/check-web-build.sh` builds the release wasm and confirms that WebGPU is the only web backend.
 - `scripts/check-boarding.sh` fails on a different TLC build, a safety or liveness violation or deadlock, incomplete exploration, mismatched fault names, or a deliberate fault that does not break its expected property. Use `--simulate` for the sandbox self-check; it is not exhaustive.
 - `scripts/check-no-comments.sh` fails if a source file holds a code comment. `cargo test` runs the same check.
+- `scripts/check-unit-prs.sh` fails if an open PR's head is not `unit/<unit>` or two open PRs share one unit. CI runs it on every pull request.
+
+Before you start a milestone unit, run `scripts/claim-unit.sh <unit>`. It pushes `unit/<unit>` from `origin/main` and fails if that branch or an open PR for it already exists, so only one worker holds a unit.
 
 To confirm that this README is still true, run `scripts/check-readme.sh`. It runs every command above and follows every link.
