@@ -8,7 +8,10 @@ fn example() -> Scenario {
         h: 40,
         ramp: vec![
             RampPoint { tick: 0, rate: 40 },
-            RampPoint { tick: 9000, rate: 90 },
+            RampPoint {
+                tick: 9000,
+                rate: 90,
+            },
         ],
         stations: [
             (12, 7, Shape::Circle, 3),
@@ -16,7 +19,13 @@ fn example() -> Scenario {
             (48, 12, Shape::Square, 4),
         ]
         .into_iter()
-        .map(|(x, y, shape, weight)| StationSpec { x, y, shape, at_tick: 0, weight })
+        .map(|(x, y, shape, weight)| StationSpec {
+            x,
+            y,
+            shape,
+            at_tick: 0,
+            weight,
+        })
         .collect(),
     }
 }
@@ -41,11 +50,20 @@ fn plan_example_is_valid() {
 fn no_stations_is_too_few() {
     let mut scenario = example();
     scenario.stations.clear();
-    assert_eq!(scenario.validate(), Err(ScenarioError::TooFewStations { count: 0 }));
+    assert_eq!(
+        scenario.validate(),
+        Err(ScenarioError::TooFewStations { count: 0 })
+    );
 }
 
 fn station(x: u16, y: u16, shape: Shape, at_tick: u32) -> StationSpec {
-    StationSpec { x, y, shape, at_tick, weight: 1 }
+    StationSpec {
+        x,
+        y,
+        shape,
+        at_tick,
+        weight: 1,
+    }
 }
 
 #[test]
@@ -54,20 +72,34 @@ fn validate_reports_the_earlier_of_two_broken_rules() {
     let mut cases: Vec<(Scenario, ScenarioError)> = Vec::new();
 
     let mut scenario = example();
-    scenario.ramp = vec![RampPoint { tick: 5, rate: 40 }, RampPoint { tick: 5, rate: 50 }];
+    scenario.ramp = vec![
+        RampPoint { tick: 5, rate: 40 },
+        RampPoint { tick: 5, rate: 50 },
+    ];
     cases.push((scenario, RampNotFromZero { tick: 5 }));
 
     let mut scenario = example();
-    scenario.ramp = vec![RampPoint { tick: 0, rate: 40 }, RampPoint { tick: 0, rate: 30 }];
+    scenario.ramp = vec![
+        RampPoint { tick: 0, rate: 40 },
+        RampPoint { tick: 0, rate: 30 },
+    ];
     cases.push((scenario, RampNotAscending { index: 1 }));
 
     let mut scenario = example();
-    scenario.ramp = vec![RampPoint { tick: 0, rate: 40 }, RampPoint { tick: 9000, rate: 30 }];
+    scenario.ramp = vec![
+        RampPoint { tick: 0, rate: 40 },
+        RampPoint {
+            tick: 9000,
+            rate: 30,
+        },
+    ];
     scenario.stations.clear();
     cases.push((scenario, RampFalls { index: 1 }));
 
     let mut scenario = example();
-    scenario.stations = (0..65u32).map(|i| station(i as u16, 0, Shape::Circle, 65 - i)).collect();
+    scenario.stations = (0..65u32)
+        .map(|i| station(i as u16, 0, Shape::Circle, 65 - i))
+        .collect();
     cases.push((scenario, TooManyStations { count: 65 }));
 
     let mut scenario = example();
@@ -92,7 +124,13 @@ fn validate_reports_the_earlier_of_two_broken_rules() {
 
     let mut scenario = example();
     scenario.stations.push(station(12, 8, Shape::Star, 100));
-    cases.push((scenario, TooClose { first: 0, second: 3 }));
+    cases.push((
+        scenario,
+        TooClose {
+            first: 0,
+            second: 3,
+        },
+    ));
 
     for (scenario, expected) in cases {
         assert_eq!(scenario.validate(), Err(expected), "{scenario:?}");
