@@ -4353,6 +4353,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "salmong-oracle"
+version = "0.1.0"
+dependencies = [
+ "salmong-core",
+ "salmong-pack",
+]
+
+[[package]]
 name = "salmong-pack"
 version = "0.1.0"
 dependencies = [
