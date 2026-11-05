@@ -14,6 +14,7 @@ enum Syntax {
     Shell,
     Tla,
     Toml,
+    Yaml,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -41,6 +42,7 @@ const BY_EXTENSION: &[(&str, FileClass)] = &[
     ("sha256", FileClass::Exempt),
     ("tla", FileClass::Scan(Syntax::Tla)),
     ("toml", FileClass::Scan(Syntax::Toml)),
+    ("yml", FileClass::Scan(Syntax::Yaml)),
 ];
 
 fn classify(path: &str) -> Option<FileClass> {
@@ -99,7 +101,7 @@ const fn grammar(syntax: Syntax) -> Grammar {
             rust_literals: true,
             ..plain
         },
-        Syntax::Shell => Grammar {
+        Syntax::Shell | Syntax::Yaml => Grammar {
             line: LineMarker::WordStart("#"),
             quotes: &[("'", false), ("\"", true)],
             ..plain
@@ -554,6 +556,10 @@ fn classifies_files() {
     );
     assert_eq!(classify("assets/unknown.wgsl"), None);
     assert_eq!(classify("Makefile"), None);
+    assert_eq!(
+        classify(".github/workflows/ci.yml"),
+        Some(FileClass::Scan(Syntax::Yaml))
+    );
 }
 
 fn scan_in_child(manifest_dir: Option<&Path>) -> Output {
