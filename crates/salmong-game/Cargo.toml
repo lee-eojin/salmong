@@ -5,6 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+salmong-core = { path = "../salmong-core" }
 bevy = { version = "=0.20.1", default-features = false, features = [
     "2d_bevy_render",
     "bevy_winit",

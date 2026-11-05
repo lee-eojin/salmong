@@ -347,7 +347,7 @@ impl Sim {
         }
     }
 
-    fn snapshot(&self) -> NetworkSnapshot {
+    pub fn snapshot(&self) -> NetworkSnapshot {
         NetworkSnapshot::new(self.rev, self.shapes.clone(), self.routes.clone())
             .expect("sim network")
     }

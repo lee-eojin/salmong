@@ -136,6 +136,19 @@ listed one by one, not `2d`, which adds `webgl2` (Q2) and gilrs and wayland, whi
 - **Update:** input, drag preview, `sync_views`, `interpolate_buses`, on-change mesh and HUD rebuilds, instance buffers.
   Buses blend previous and current tick snapshots by the fixed overstep fraction. A bus with no previous snapshot snaps.
   Edits cause no jumps, because segments always finish.
+- **Input (`salmong_core::input`, M3.2):** one gesture. Left press on a station, drag across stations, release on the last one
+  builds a trail; drag back onto the second-last station undoes. Hit radius 1.5 grid units; screen maps to grid by a centred
+  letterbox (`Fit`). Esc, cursor leaving, focus loss or release off a station cancel. Routes are tried by ascending id:
+
+  | Trail against a route | Result |
+  |---|---|
+  | Only walks adjacent stops | Remove the start and crossed stops: `EditRoute`, or `RemoveRoute` under 2 stops |
+  | Walks at least 1 hop to a terminal, then only new stations | Extend: `EditRoute` |
+  | Same walk, a later station on the route | Loop (Q4): no command |
+  | Starts on a stop, crosses new stations, ends on the adjacent stop | Insert: `EditRoute` |
+  | No route matches | `AddRoute { stops: trail }` |
+
+  Commands are stamped with `view().tick` when `apply_commands` drains them; after `SimMode::Over` they are dropped.
 
 ## 4. TLA+ usage
 

@@ -1,5 +1,6 @@
 pub mod balance;
 pub mod ids;
+pub mod input;
 pub mod network;
 pub mod replay;
 pub mod rng;
