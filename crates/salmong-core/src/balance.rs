@@ -6,6 +6,8 @@ pub struct Balance {
     pub service_ticks: u32,
     pub spawn_unit: u64,
     pub max_alive: usize,
+    pub station_capacity: usize,
+    pub overflow_limit: u32,
 }
 
 impl Balance {
@@ -17,6 +19,8 @@ impl Balance {
             service_ticks: 8,
             spawn_unit: 30_000,
             max_alive: 5_000,
+            station_capacity: 8,
+            overflow_limit: 1350,
         }
     }
 }
