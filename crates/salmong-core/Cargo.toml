@@ -13,3 +13,7 @@ trace = []
 
 [dev-dependencies]
 salmong-core = { path = ".", features = ["fixtures", "trace"] }
+
+[[bench]]
+name = "step"
+harness = false

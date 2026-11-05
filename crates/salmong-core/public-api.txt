@@ -287,6 +287,7 @@ impl StructuralPartialEq for salmong_core::trace::BusState
 impl StructuralPartialEq for salmong_core::trace::Phase
 impl StructuralPartialEq for salmong_core::trace::TraceState
 impl StructuralPartialEq for salmong_core::trace::TraceStep
+method salmong_core::balance::Balance::bench()
 method salmong_core::balance::Balance::mvp()
 method salmong_core::ids::Dir::index(self)
 method salmong_core::ids::Dir::reverse(self)
