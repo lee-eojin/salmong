@@ -3,7 +3,7 @@ use crate::ids::{RouteId, StationId, Tick};
 use crate::scenario::Scenario;
 use crate::sim::{Command, Sim};
 
-pub const RULES_VERSION: u32 = 1;
+pub const RULES_VERSION: u32 = 2;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ReplayHeader {

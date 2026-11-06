@@ -1,15 +1,23 @@
+use salmong_core::scenario::Scenario;
 use salmong_oracle::bots::{GAME_TICKS, GameResult, Greedy, Idle, play};
 use salmong_oracle::generate_pack;
 
 const SCENARIOS: usize = 16;
 
+fn start_stations_only(scenario: &Scenario) -> Scenario {
+    let mut scenario = scenario.clone();
+    scenario.stations.retain(|s| s.at_tick == 0);
+    scenario
+}
+
 fn games() -> Vec<(u32, GameResult, GameResult)> {
     let pack = generate_pack(1, 16).expect("seed 1 count 16 generates");
     pack.scenarios
         .iter()
+        .map(start_stations_only)
         .map(|s| {
             let seed = u64::from(s.seed);
-            (s.id, play(s, seed, &mut Idle), play(s, seed, &mut Greedy))
+            (s.id, play(&s, seed, &mut Idle), play(&s, seed, &mut Greedy))
         })
         .collect()
 }

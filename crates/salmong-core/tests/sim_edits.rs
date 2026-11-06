@@ -94,6 +94,7 @@ fn run(ticks: u64, mut before: impl FnMut(&mut Sim, u64), mut after: impl FnMut(
                 } => D(t, b, p, s),
                 SimEvent::CommandRejected => panic!("unexpected reject at {t}"),
                 SimEvent::Spawned { .. } => panic!("unexpected spawn at {t}"),
+                SimEvent::StationSpawned { .. } => panic!("unexpected station at {t}"),
                 SimEvent::OverflowStarted { .. } | SimEvent::GameOver => continue,
             });
         }

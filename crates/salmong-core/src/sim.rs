@@ -5,7 +5,7 @@ use crate::ids::{BusId, Dir, PassengerId, RouteId, StationId, Tick};
 use crate::network::{MAX_ROUTES, NetworkSnapshot};
 use crate::rng::Pcg32;
 use crate::routing::{DijkstraRouter, RouteTable, Router, board_bit};
-use crate::scenario::{RampPoint, Scenario, Shape};
+use crate::scenario::{RampPoint, Scenario, Shape, StationSpec};
 use crate::score::FinalScore;
 use crate::spawn::rate;
 use crate::trace::Action;
@@ -52,6 +52,9 @@ pub enum SimMode {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SimEvent {
     CommandRejected,
+    StationSpawned {
+        station: StationId,
+    },
     OverflowStarted {
         station: StationId,
     },
@@ -100,6 +103,7 @@ pub struct Sim {
     shapes: Vec<Shape>,
     pos: Vec<(i64, i64)>,
     weights: Vec<u64>,
+    pending: VecDeque<StationSpec>,
     ramp: Vec<RampPoint>,
     acc: Vec<u64>,
     rng: Pcg32,
@@ -165,12 +169,19 @@ impl Sim {
         let table = DijkstraRouter.solve(&net);
         let queues = shapes.iter().map(|_| Default::default()).collect();
         let overflow = vec![0; shapes.len()];
+        let pending = scenario
+            .stations
+            .iter()
+            .filter(|s| s.at_tick > 0)
+            .copied()
+            .collect();
         Self {
             balance,
             shapes,
             pos,
             acc: vec![0; weights.len()],
             weights,
+            pending,
             ramp: scenario.ramp,
             rng: Pcg32::new(seed, 54),
             routes: Vec::new(),
@@ -225,6 +236,7 @@ impl Sim {
         let tick = self.tick;
         self.run_commands(events);
         check(self, events);
+        self.join_stations(tick, events);
         if self.dirty {
             self.recompute_table();
         }
@@ -247,6 +259,24 @@ impl Sim {
         self.overflow(events);
         self.tick = Tick(tick.0 + 1);
         check(self, events);
+    }
+
+    fn join_stations(&mut self, tick: Tick, events: &mut Vec<SimEvent>) {
+        while let Some(spec) = self
+            .pending
+            .pop_front_if(|s| u64::from(s.at_tick) == tick.0)
+        {
+            let station = StationId(self.shapes.len() as u16);
+            self.shapes.push(spec.shape);
+            self.pos.push((i64::from(spec.x), i64::from(spec.y)));
+            self.weights.push(u64::from(spec.weight));
+            self.acc.push(0);
+            self.overflow.push(0);
+            self.queues.push(Default::default());
+            self.rev += 1;
+            self.table = DijkstraRouter.solve(&self.snapshot());
+            events.push(SimEvent::StationSpawned { station });
+        }
     }
 
     fn overflow(&mut self, events: &mut Vec<SimEvent>) {
