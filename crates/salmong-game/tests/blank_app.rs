@@ -5,6 +5,7 @@ use bevy::prelude::*;
 use bevy::render::RenderPlugin;
 use bevy::render::settings::WgpuSettings;
 use bevy::winit::WinitPlugin;
+use salmong_game::best::BestRes;
 use salmong_game::{BlankPlugin, plugins};
 
 fn blank_app() -> App {
@@ -63,4 +64,5 @@ fn shipped_plugins_start_without_a_window_or_gpu() {
             .to_u8_array(),
         [0xFA, 0x80, 0x72, 0xFF]
     );
+    assert!(app.world().contains_resource::<BestRes>());
 }

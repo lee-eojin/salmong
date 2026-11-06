@@ -4463,6 +4463,7 @@ dependencies = [
  "salmong-core",
  "salmong-pack",
  "wasm-bindgen-test",
+ "web-sys",
 ]
 
 [[package]]
