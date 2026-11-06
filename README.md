@@ -33,6 +33,7 @@ Install these tools first. [Before you start](docs/m0.3-webgpu-check.md#before-y
 | Node.js | 24 |
 | TLC and Java | TLC 2.19 (08 August 2024, revision `5a47802`), Java 17; set `TLA2TOOLS` to the jar or provide `tlc` on PATH |
 | Bend | 2.0.39, from `scripts/install-bend.sh`; only `scripts/check-bend.sh`, `scripts/check-scenarios.sh` and `scripts/check-pack.sh` need it |
+| GNU gzip | 1.13; only `scripts/check-web-build.sh` and `scripts/measure-size.sh` need it |
 
 Run every command from the repository root.
 
@@ -63,6 +64,7 @@ These scripts exit 0 when they pass:
 ```sh
 scripts/check-toolchain.sh
 scripts/check-web-build.sh
+scripts/measure-size.sh
 scripts/check-no-comments.sh
 scripts/check-boarding.sh
 scripts/check-trace.sh
@@ -80,6 +82,7 @@ scripts/check-pack.sh
 - `scripts/check-bend.sh` fails unless `bend` on PATH is the shim from `scripts/install-bend.sh`, prints `bend 2.0.39` and matches its pinned sha256, and `bend/hello.bend` prints its line with telemetry off and no network. [docs/m4.1-bend-install.md](docs/m4.1-bend-install.md) has the install review.
 - `scripts/check-scenarios.sh` fails unless `bend/vectors.bend` passes the M2.3 vectors, `bend/scenarios.bend` prints the same bytes as `salmong-oracle pack` for seeds 1, 0 and 4294967295 at count 1 and matches `assets/scenarios/pack.v1.json` at `1 16`, bad arguments exit 2 with empty stdout, and 16 mutants of `bend/scenarios.bend` fail as designed.
 - `scripts/check-pack.sh` fails unless `bend/scenarios.bend` and `salmong-oracle pack` print `cmp`-equal bytes for seeds 1 to 3 at counts 1, 16 and 64, every pack passes `salmong-oracle validate`, `1 16` matches `assets/scenarios/pack.v1.sha256`, four tampered packs are refused, and 23 Rust mutations of the generator fail as designed.
+- `scripts/measure-size.sh` builds the release web app and prints the bytes a browser downloads on a cold load, raw, gzip and brotli, as a table and then one line of JSON. It fails if `index.html` loads a file that is not in `dist/`. It sets no budget. [docs/m5.3-size.md](docs/m5.3-size.md) has the method.
 - `scripts/check-no-comments.sh` fails if a source file holds a code comment. `cargo test` runs the same check.
 - `scripts/check-mutants.sh [base]` runs cargo-mutants on the `.rs` lines changed since `base` (default `origin/main`, or `--all` for every crate but salmong-game) and fails on a missed mutant that `mutants-allow.toml` does not list with a reason. It counts a timeout as caught and skips when no `.rs` file changed. CI runs it on every pull request.
 - `scripts/check-unit-prs.sh` fails if an open PR's head is not `unit/<unit>` or two open PRs share one unit. CI runs it on every pull request.
