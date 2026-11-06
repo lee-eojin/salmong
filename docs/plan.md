@@ -121,8 +121,9 @@ impl Sim {
 
 - **Router contract.** `solve` takes a snapshot within limits and returns a table with `table.rev == net.rev` satisfying
   section 2. `Sim` calls `DijkstraRouter` directly; test-only `ReferenceRouter` (Bellman-Ford) is compared table to table, so no injection.
-- **Tick order.** Run queued commands, recompute the table if dirty (restarting all stopped buses, section 2), spawn, move
-  buses, alight, board, overflow.
+- **Tick order.** Run queued commands, join stations whose `at_tick` is this tick (each raises the network `rev` and solves
+  the table but restarts no bus: an unlinked station cannot change any `stay` or `board` bit), recompute the table if dirty
+  (restarting all stopped buses, section 2), spawn, move buses, alight, board, overflow.
   Commands run in queue order and are validated when they run, so an earlier one can invalidate a later one; a rejected
   command changes nothing and emits `CommandRejected`.
 - **Replay.** Header: `RULES_VERSION` (bumped by any rule or routing change), pack sha256, scenario `id`, `seed`, `Balance`.
@@ -344,7 +345,7 @@ laptop (Q3), `clang` needs clang 14+. M1 needs no new tools and precedes M2 to k
 | M2.5d Spawning | `spawn`, accumulator, spawn pause | Golden spawn ticks and `want` values; population never passes 5,000 | box |
 | M2.5e Overflow | `overflow`, game over | Game over on exactly tick 1350 of overflow; decay of 2 per tick; safety proptests hold after every microstep | box |
 | M2.5f Station spawning | Stations with `at_tick > 0` join the sim; `StationSpawned`; `RULES_VERSION` bump | Each station joins on exactly its `at_tick`; the table recomputes that tick; a bot that links every new station reaches game over on all 16 scenarios | box |
-| M2.6 Bot games | Greedy bot and do-nothing baseline | 10,000 ticks on all 16 scenarios: bot delivers at least 50% of spawned *(tune)* and outlives the baseline | box |
+| M2.6 Bot games | Greedy bot and do-nothing baseline | 10,000 ticks on the start stations of all 16 scenarios: bot delivers at least 50% of spawned *(tune)* and outlives the baseline | box |
 | M2.7 Determinism | wasm build of core, run in Node | Per-tick `state_hash` sequence equals native on fixed seeds; replay with a wrong header is refused | box |
 | M2.8 Trace check | `BoardingTrace.tla` (needs M1.1) | TLC accepts traces from sample seeds; dropped, reordered or altered steps are rejected | box |
 | M2.9 Perf workload | Bench `Balance`, `cargo bench` | Workload reaches 5,000 alive; peak `step` recorded before render work starts | box |

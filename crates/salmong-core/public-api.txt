@@ -465,6 +465,7 @@ variant salmong_core::sim::SimEvent::Delivered
 variant salmong_core::sim::SimEvent::GameOver
 variant salmong_core::sim::SimEvent::OverflowStarted
 variant salmong_core::sim::SimEvent::Spawned
+variant salmong_core::sim::SimEvent::StationSpawned
 variant salmong_core::sim::SimMode::Over
 variant salmong_core::sim::SimMode::Running
 variant salmong_core::trace::Action::Alight
