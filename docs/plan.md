@@ -278,6 +278,7 @@ station k<64   first a in 0..255 with x = pick(2,w-3,r(1,k,a)), y = pick(2,h-3,r
 - **Acceptance check (M4.4).** For seeds 1 to 3 and counts 1, 16, 64, `bend bend/scenarios.bend <seed> <count>` and `salmong-oracle
   pack <seed> <count>` must print `cmp`-equal bytes that pass `Scenario::validate`; seed 1 count 16 must match `pack.v1.sha256`.
   Equal bytes prove agreement only, so Rust mutations (wrong coordinate, hash index, ramp value) must each fail. CLI verified at M4.1: `IO.args()` starts with the program, so `<seed>` is index 1 and `<count>` index 2. `scripts/check-pack.sh` runs this check; `salmong-oracle validate <file>` calls `parse_pack`, which runs `Scenario::validate`.
+- **Fallback check (M4.6).** `scripts/check-fallback.sh` removes `bend` from PATH, builds `salmong-oracle` in a new target directory, regenerates the pack with `salmong-oracle pack 1 16` in an empty environment and working directory, and requires it `cmp`-equal to `pack.v1.json`, equal to `pack.v1.sha256` and accepted by `salmong-oracle validate`. `salmong-oracle validate` must refuse two tampered packs, and a valid seed 2 pack must fail `cmp` and the sha256 check. This covers only the regeneration half of the M4.6 no-go check: the game does not embed the pack yet, so `the game loads it` stays open for a later unit. It decides nothing: the go/no-go decision is pending 레스.
 
 ## 6. Web 60 fps budget
 
@@ -354,7 +355,7 @@ laptop (Q3), `clang` needs clang 14+. M1 needs no new tools and precedes M2 to k
 | M4.2 First scenario | Port `h32`; `bend/scenarios.bend` | M2.3 vectors pass on the JS lane; `bend/scenarios.bend 1 1` equals the Rust output byte for byte | box |
 | M4.4 Pack check | Section 5 acceptance check | All seeds and counts `cmp` equal; every mutation fails | box |
 | M4.5 Native lane | Native binary | Bytes equal the JS lane at 1 and 8 threads, count 1,024; times recorded, not gated | clang |
-| M4.6 Bend go/no-go | Decide at M3.3 done or 5 working days after M4.1 starts, whichever is first. No M4.4 pass means no-go | No-go: with Bend absent, `salmong-oracle pack` regenerates the pack and the game loads it | box |
+| M4.6 Bend go/no-go | Decide at M3.3 done or 5 working days after M4.1 starts, whichever is first. No M4.4 pass means no-go | No-go: with Bend absent, `salmong-oracle pack` regenerates the pack and the game loads it. `scripts/check-fallback.sh` runs the regeneration half; `the game loads it` is open and the decision is pending 레스 | box |
 | M5.2 Frame gate | Instancing; `?bench=stress&seed=1` | At most 20 draw calls; section 6 protocol passes; stall, hidden tab, pause and x2 transitions keep the replay's `state_hash` | gpu |
 | M5.3 Size | LTO, `opt-level`, `wasm-opt`, cost of `serde_json` | Download size, as `scripts/measure-size.sh` measures it (`docs/m5.3-size.md`), meets the target set from the M0.2 baseline. The target is not set yet | box |
 | M6.1a Best record | `score`: `FinalScore`, canonical text, `merge`; `Sim::final_score` | Score outranks survival and ties break by ticks; non-canonical text reads as no record; `merge` keeps the better run; `final_score` is `None` until `SimMode::Over`; `state_hash` and `RULES_VERSION` unchanged | box |
