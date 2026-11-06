@@ -12,7 +12,7 @@ if [[ ${#wasm[@]} -ne 1 || ! -f ${wasm[0]} ]]; then
   exit 1
 fi
 node -e 'new WebAssembly.Module(require("fs").readFileSync(process.argv[1]))' "${wasm[0]}"
-echo "ok: wasm compiles, $(wc -c <"${wasm[0]}") bytes, $(gzip -9 -c "${wasm[0]}" | wc -c) gzipped"
+echo "ok: wasm compiles, $(wc -c <"${wasm[0]}") bytes, $(gzip -9 -n -c "${wasm[0]}" | wc -c) gzipped"
 
 tree=$(cargo tree --locked -p salmong-game -e features --target wasm32-unknown-unknown)
 if ! grep -q 'wgpu feature "webgpu"' <<<"$tree"; then

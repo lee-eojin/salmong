@@ -309,7 +309,7 @@ Measurement:
 |---|---|---|---|
 | Rust | rustup 1.29.3; toolchain `stable` is 1.99.1, with `wasm32-unknown-unknown`; 1.97.1 not installed | No install. `rust-toolchain.toml` sets channel `stable`, because an exact `1.99.1` names a toolchain rustup would download. `scripts/check-toolchain.sh` fails if `stable` moves. `rust-version` stays 1.97.1 (Bevy 0.20.1 MSRV) | M0 |
 | trunk, wasm-bindgen-cli | trunk 0.22.1, wasm-bindgen-cli 0.2.130 | Keep wasm-bindgen-cli at the `Cargo.lock` version; trunk replaces wasm-pack | M0 |
-| wasm-opt, brotli | missing | M0.2 confirmed Trunk runs `wasm-opt` in release and would download it. `web/index.html` sets `data-wasm-opt="0"` until M5.3 | M5 |
+| wasm-opt, brotli CLI | missing | M0.2 confirmed Trunk runs `wasm-opt` in release and would download it. `web/index.html` sets `data-wasm-opt="0"` until M5.3. `scripts/measure-size.sh` uses the brotli in Node's `zlib`, so the CLI is not needed | M5 |
 | TLC | `tla2tools.jar` 2.19 in a local tools dir, Java 17 | Set `TLA2TOOLS` or provide `tlc` on PATH; `scripts/check-boarding.sh` pins the TLC build by its exact version line | M1 |
 | Bend 2 | 2.0.39 installed at M4.1 by `scripts/install-bend.sh` from the release archive pinned by sha256; clang still missing (gcc is [not a target](https://github.com/bendlang/bend/blob/4024f04/WONTFIX.txt#L27)); Bun 1.4.2, Node 24 | Upstream `install.sh` was reviewed but not run, as it cannot pin. The shim sets `BEND_NO_TELEMETRY=1`; JS target only; clang only for M4.5 | M4 |
 | GPU, browser | no `/dev/dri`; Chrome 156 gets a SwiftShader adapter here but cannot show a WebGPU canvas, so this box cannot validate rendering or 60 fps | Ordinary laptop with Chrome for perf and WebGPU checks | M0, M5 |
@@ -348,7 +348,7 @@ laptop (Q3), `clang` needs clang 14+. M1 needs no new tools and precedes M2 to k
 | M4.5 Native lane | Native binary | Bytes equal the JS lane at 1 and 8 threads, count 1,024; times recorded, not gated | clang |
 | M4.6 Bend go/no-go | Decide at M3.3 done or 5 working days after M4.1 starts, whichever is first. No M4.4 pass means no-go | No-go: with Bend absent, `salmong-oracle pack` regenerates the pack and the game loads it | box |
 | M5.2 Frame gate | Instancing; `?bench=stress&seed=1` | At most 20 draw calls; section 6 protocol passes; stall, hidden tab, pause and x2 transitions keep the replay's `state_hash` | gpu |
-| M5.3 Size | LTO, `opt-level`, `wasm-opt`, cost of `serde_json` | Download size meets the target set from the M0.2 baseline | box |
+| M5.3 Size | LTO, `opt-level`, `wasm-opt`, cost of `serde_json` | Download size, as `scripts/measure-size.sh` measures it (`docs/m5.3-size.md`), meets the target set from the M0.2 baseline. The target is not set yet | box |
 | M6.1 Weekly rewards | `rewards`, reward UI; per-route and per-station capacity in spec and core (needs Q7) | TLC and safety proptests pass with reward pause and mixed capacities; illegal `ChooseReward` is rejected | box |
 | M6.2 Release | Original art and audio, tuning, static hosting | Every asset lists its author and licence; playtest sign-off; hosted URL reaches game over in a clean browser profile | gpu |
 
