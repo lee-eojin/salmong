@@ -1,4 +1,5 @@
 pub mod input;
+pub mod pack;
 
 use bevy::app::PluginGroupBuilder;
 use bevy::prelude::*;
@@ -29,4 +30,5 @@ pub fn plugins() -> PluginGroupBuilder {
         })
         .add(BlankPlugin)
         .add(input::InputPlugin)
+        .add(pack::PackPlugin)
 }
