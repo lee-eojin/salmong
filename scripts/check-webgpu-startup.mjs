@@ -16,6 +16,7 @@ const MIME = {
 
 const ADAPTER_LINE = "salmong: WebGPU adapter ";
 const NO_ADAPTER_LINE = "salmong: no WebGPU adapter";
+const PACK_LINE = "salmong: scenario pack loaded, 16 scenarios";
 const SOFTWARE_ADAPTER = [
   "--enable-unsafe-webgpu",
   "--enable-unsafe-swiftshader",
@@ -28,7 +29,8 @@ const CASES = [
     flags: SOFTWARE_ADAPTER,
     done: (lines) =>
       lines.some((l) => l.startsWith(ADAPTER_LINE)) &&
-      lines.some((l) => l.includes("backend: BrowserWebGpu")),
+      lines.some((l) => l.includes("backend: BrowserWebGpu")) &&
+      lines.some((l) => l.includes(PACK_LINE)),
     errorScreenVisible: false,
     canvasFillsWindow: true,
   },
@@ -106,9 +108,19 @@ function launchChrome(flags) {
   return { debugPort, close };
 }
 
+async function pageTarget(port) {
+  const deadline = Date.now() + TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
+    const page = targets.find((target) => target.type === "page");
+    if (page) return page;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  throw new Error("Chrome opened no page target");
+}
+
 async function connect(port) {
-  const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
-  const page = targets.find((target) => target.type === "page");
+  const page = await pageTarget(port);
   const socket = new WebSocket(page.webSocketDebuggerUrl);
   await new Promise((resolve, reject) => {
     socket.addEventListener("open", resolve, { once: true });
