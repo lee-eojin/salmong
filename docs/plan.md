@@ -239,7 +239,8 @@ the same invariants after every microstep, and `BoardingTrace.tla` checks traces
 **Decision.** Bend stays out of the shipped runtime: routing is tiny (64 stations, 4 shapes, edits only), and a young compiler
 ("not yet fully audited") should not sit on every player's critical path. Bend's one job is **offline scenario generation**: a
 pure function of a seed, needing no `Sim`, with a small Rust reference. At 16 scenarios parallelism earns nothing; the job proves
-the pipe. Not planned: route-layout sweeps, operator AI, a Bend routing oracle (Q1). Fallback: M4.6 (the Rust reference writes the same bytes).
+the pipe. Not planned: route-layout sweeps, operator AI, a Bend routing oracle (Q1).
+M4.6 is GO (레스, 2026-11-06): Bend stays because it is a second generator that cross-checks pack bytes via `cmp`; if Bend is absent, Rust writes the same bytes.
 
 **File format: `assets/scenarios/pack.v1.json`, committed.** Bend has no JSON library, but integer JSON is just string
 joins, and git and `cmp` can read it. Canonical bytes: ASCII, integers only, no spaces, fixed key order as shown, scenarios
@@ -279,8 +280,8 @@ station k<64   first a in 0..255 with x = pick(2,w-3,r(1,k,a)), y = pick(2,h-3,r
 - **Acceptance check (M4.4).** For seeds 1 to 3 and counts 1, 16, 64, `bend bend/scenarios.bend <seed> <count>` and `salmong-oracle
   pack <seed> <count>` must print `cmp`-equal bytes that pass `Scenario::validate`; seed 1 count 16 must match `pack.v1.sha256`.
   Equal bytes prove agreement only, so Rust mutations (wrong coordinate, hash index, ramp value) must each fail. CLI verified at M4.1: `IO.args()` starts with the program, so `<seed>` is index 1 and `<count>` index 2. `scripts/check-pack.sh` runs this check; `salmong-oracle validate <file>` calls `parse_pack`, which runs `Scenario::validate`.
-- **Fallback check (M4.6).** `scripts/check-fallback.sh` removes `bend` from PATH, builds `salmong-oracle` in a new target directory, regenerates the pack with `salmong-oracle pack 1 16` in an empty environment and working directory, and requires it `cmp`-equal to `pack.v1.json`, equal to `pack.v1.sha256` and accepted by `salmong-oracle validate`. `salmong-oracle validate` must refuse two tampered packs, and a valid seed 2 pack must fail `cmp` and the sha256 check. This covers only the regeneration half of the M4.6 no-go check. It decides nothing: the go/no-go decision is pending 레스.
-- **Load check (M4.6a).** `scripts/check-pack-load.sh` removes `bend` from PATH, copies the tree to a scratch directory and builds it in a target directory that no other build uses. `salmong-oracle pack 1 16` must regenerate `pack.v1.json`, and `salmong-game` built from those bytes must load them through its shipped plugins. A missing, out-of-bounds, non-canonical or different pack and two broken wirings must each be refused. `scripts/check-webgpu-startup.mjs` requires the shipped wasm to log `salmong: scenario pack loaded, 16 scenarios` in Chrome. This makes the `the game loads it` half of the M4.6 no-go check runnable. It decides nothing: the go/no-go decision is pending 레스.
+- **Fallback check (M4.6).** `scripts/check-fallback.sh` removes `bend` from PATH, builds `salmong-oracle` in a new target directory, regenerates the pack with `salmong-oracle pack 1 16` in an empty environment and working directory, and requires it `cmp`-equal to `pack.v1.json`, equal to `pack.v1.sha256` and accepted by `salmong-oracle validate`. `salmong-oracle validate` must refuse two tampered packs, and a valid seed 2 pack must fail `cmp` and the sha256 check. M4.6 is GO; this check stays as the fallback gate that proves Rust can regenerate the pack when Bend is absent.
+- **Load check (M4.6a).** `scripts/check-pack-load.sh` removes `bend` from PATH, copies the tree to a scratch directory and builds it in a target directory that no other build uses. `salmong-oracle pack 1 16` must regenerate `pack.v1.json`, and `salmong-game` built from those bytes must load them through its shipped plugins. A missing, out-of-bounds, non-canonical or different pack and two broken wirings must each be refused. `scripts/check-webgpu-startup.mjs` requires the shipped wasm to log `salmong: scenario pack loaded, 16 scenarios` in Chrome. M4.6 is GO; this check stays as the fallback gate that proves the game can load the pack when Bend is absent.
 
 ## 6. Web 60 fps budget
 
@@ -321,13 +322,13 @@ Measurement:
 | trunk, wasm-bindgen-cli | trunk 0.22.1, wasm-bindgen-cli 0.2.130 | Keep wasm-bindgen-cli at the `Cargo.lock` version; trunk replaces wasm-pack | M0 |
 | wasm-opt, brotli CLI | missing | M0.2 confirmed Trunk runs `wasm-opt` in release and would download it. `web/index.html` sets `data-wasm-opt="0"` until M5.3. `scripts/measure-size.sh` uses the brotli in Node's `zlib`, so the CLI is not needed | M5 |
 | TLC | `tla2tools.jar` 2.19 in a local tools dir, Java 17 | Set `TLA2TOOLS` or provide `tlc` on PATH; `scripts/check-boarding.sh` pins the TLC build by its exact version line | M1 |
-| Bend 2 | 2.0.39 installed at M4.1 by `scripts/install-bend.sh` from the release archive pinned by sha256; clang still missing (gcc is [not a target](https://github.com/bendlang/bend/blob/4024f04/WONTFIX.txt#L27)); Bun 1.4.2, Node 24 | Upstream `install.sh` was reviewed but not run, as it cannot pin. The shim sets `BEND_NO_TELEMETRY=1`; JS target only; clang only for M4.5 | M4 |
+| Bend 2 | 2.0.39 installed at M4.1 by `scripts/install-bend.sh` from the release archive pinned by sha256; clang not installed (gcc is [not a target](https://github.com/bendlang/bend/blob/4024f04/WONTFIX.txt#L27)); Bun 1.4.2, Node 24 | Upstream `install.sh` was reviewed but not run, as it cannot pin. The shim sets `BEND_NO_TELEMETRY=1`; JS target only; M4.5 is out of MVP, so nothing installs clang | M4 |
 | GPU, browser | no `/dev/dri`; Chrome 156 gets a SwiftShader adapter here but cannot show a WebGPU canvas, so this box cannot validate rendering or 60 fps | Ordinary laptop with Chrome for perf and WebGPU checks | M0, M5 |
 
 ## 8. Milestones
 
 Each unit fits one change and has a check that passes or fails. Where: `box` runs here after M0, `gpu` needs the reference
-laptop (Q3), `clang` needs clang 14+. M1 needs no new tools and precedes M2 to keep rule changes cheap. M4 needs only M2.3, so it can overlap M3.
+laptop (Q3), `skip` is out of MVP and runs nowhere. M1 needs no new tools and precedes M2 to keep rule changes cheap. M4 needs only M2.3, so it can overlap M3.
 
 | Unit | Work | Check | Where |
 |---|---|---|---|
@@ -356,11 +357,11 @@ laptop (Q3), `clang` needs clang 14+. M1 needs no new tools and precedes M2 to k
 | M4.1 Bend install | Review `install.sh`, pin 2.0.39 | `bend version` is 2.0.39; a hello program prints its line | box |
 | M4.2 First scenario | Port `h32`; `bend/scenarios.bend` | M2.3 vectors pass on the JS lane; `bend/scenarios.bend 1 1` equals the Rust output byte for byte | box |
 | M4.4 Pack check | Section 5 acceptance check | All seeds and counts `cmp` equal; every mutation fails | box |
-| M4.5 Native lane | Native binary | Bytes equal the JS lane at 1 and 8 threads, count 1,024; times recorded, not gated | clang |
+| M4.5 Native lane | Skipped: out of MVP, nothing installed | Reopen when the Native lane is required or pack count makes the JS lane too slow; Option A is then clang 19. Reopened check: bytes equal the JS lane at 1 and 8 threads, count 1,024; times recorded, not gated | skip |
 | M4.6a Pack loader | `salmong_game::pack`: `PackPlugin`, `include_bytes!`, `parse_pack`, `ScenarioPack` | `scripts/check-pack-load.sh`: with Bend absent the shipped plugins load the regenerated pack, and bad packs and broken wirings are refused. `scripts/check-webgpu-startup.mjs`: the shipped wasm logs the load in Chrome. Size change recorded in `docs/m5.3-size.md` | box |
-| M4.6 Bend go/no-go | Decide at M3.3 done or 5 working days after M4.1 starts, whichever is first. No M4.4 pass means no-go | No-go: with Bend absent, `salmong-oracle pack` regenerates the pack and the game loads it. `scripts/check-fallback.sh` runs the regeneration half and `scripts/check-pack-load.sh` runs the `the game loads it` half; the decision is pending 레스 | box |
+| M4.6 Bend go/no-go | Decided 2026-11-06 by 레스: GO. Bend keeps offline scenario generation (section 5) | With Bend absent, `salmong-oracle pack` regenerates the pack and the game loads it. `scripts/check-fallback.sh` proves the regeneration and `scripts/check-pack-load.sh` proves the load; both stay as the fallback gates | box |
 | M5.2 Frame gate | Instancing; `?bench=stress&seed=1` | At most 20 draw calls; section 6 protocol passes; stall, hidden tab, pause and x2 transitions keep the replay's `state_hash` | gpu |
-| M5.3 Size | LTO, `opt-level`, `wasm-opt`, cost of `serde_json` | Download size, as `scripts/measure-size.sh` measures it (`docs/m5.3-size.md`), meets the target set from the M0.2 baseline. The target is not set yet | box |
+| M5.3 Size | LTO, `opt-level`, `wasm-opt`, cost of `serde_json` | Download size, as `scripts/measure-size.sh` measures it (`docs/m5.3-size.md`), meets the provisional target: brotli total 6,000,000 bytes (`total.brotli`, precompressed brotli host). The script does not fail the target. Not complete: completion waits for the GPU build | box |
 | M6.1a Best record | `score`: `FinalScore`, canonical text, `merge`; `Sim::final_score` | Score outranks survival and ties break by ticks; non-canonical text reads as no record; `merge` keeps the better run; `final_score` is `None` until `SimMode::Over`; `state_hash` and `RULES_VERSION` unchanged | box |
 | M6.1b Best store | `salmong_game::best`: `BestPlugin`, `localStorage` on wasm, file on native | `scripts/check-best-score.sh`: the record survives reload and browser restart; better, worse, corrupt, full and denied stores behave as section 3 says; wasm and native agree on the run | box |
 | M6.2 Release | Original art and audio, tuning, static hosting | Every asset lists its author and licence; playtest sign-off; hosted URL reaches game over in a clean browser profile | gpu |
