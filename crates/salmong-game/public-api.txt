@@ -1,32 +1,48 @@
+field salmong_game::best::BestRes::0
 field salmong_game::input::CommandLog::0
 field salmong_game::input::PendingCommands::0
 field salmong_game::input::PointerRes::0
 field salmong_game::input::SimRes::scenario
 field salmong_game::input::SimRes::sim
 field salmong_game::pack::ScenarioPack::0
+fn salmong_game::best::record_best(sim, store, best)
 fn salmong_game::input::apply_commands(sim, pending, log)
 fn salmong_game::input::pointer_event(ev, fit)
 fn salmong_game::plugins()
+impl Component for salmong_game::best::BestRes
+impl Component for salmong_game::best::BestStore
 impl Component for salmong_game::input::CommandLog
 impl Component for salmong_game::input::PendingCommands
 impl Component for salmong_game::input::PointerRes
 impl Component for salmong_game::input::SimRes
 impl Component for salmong_game::pack::ScenarioPack
+impl Default for salmong_game::best::BestRes
+impl Default for salmong_game::best::BestStore
 impl Default for salmong_game::input::CommandLog
 impl Default for salmong_game::input::PendingCommands
 impl Default for salmong_game::input::PointerRes
 impl Plugin for salmong_game::BlankPlugin
+impl Plugin for salmong_game::best::BestPlugin
 impl Plugin for salmong_game::input::InputPlugin
 impl Plugin for salmong_game::pack::PackPlugin
+impl Resource for salmong_game::best::BestRes
+impl Resource for salmong_game::best::BestStore
 impl Resource for salmong_game::input::CommandLog
 impl Resource for salmong_game::input::PendingCommands
 impl Resource for salmong_game::input::PointerRes
 impl Resource for salmong_game::input::SimRes
 impl Resource for salmong_game::pack::ScenarioPack
+method salmong_game::best::BestStore::at(path)
+method salmong_game::best::BestStore::load(self)
+method salmong_game::best::BestStore::save(self, text)
 mod salmong_game
+mod salmong_game::best
 mod salmong_game::input
 mod salmong_game::pack
 struct salmong_game::BlankPlugin
+struct salmong_game::best::BestPlugin
+struct salmong_game::best::BestRes
+struct salmong_game::best::BestStore
 struct salmong_game::input::CommandLog
 struct salmong_game::input::InputPlugin
 struct salmong_game::input::PendingCommands

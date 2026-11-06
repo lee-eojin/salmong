@@ -34,6 +34,7 @@ Install these tools first. [Before you start](docs/m0.3-webgpu-check.md#before-y
 | TLC and Java | TLC 2.19 (08 August 2024, revision `5a47802`), Java 17; set `TLA2TOOLS` to the jar or provide `tlc` on PATH |
 | Bend | 2.0.39, from `scripts/install-bend.sh`; only `scripts/check-bend.sh`, `scripts/check-scenarios.sh` and `scripts/check-pack.sh` need it |
 | GNU gzip | 1.13; only `scripts/check-web-build.sh` and `scripts/measure-size.sh` need it |
+| Chrome | Any version with `--headless=new`; set `CHROME` if it is not `google-chrome`; only `scripts/check-best-score.sh` and `scripts/check-webgpu-startup.mjs` need it |
 
 Run every command from the repository root.
 
@@ -74,6 +75,7 @@ scripts/check-scenarios.sh
 scripts/check-pack.sh
 scripts/check-fallback.sh
 scripts/check-pack-load.sh
+scripts/check-best-score.sh
 ```
 
 - `scripts/check-toolchain.sh` fails if `rustc` is not 1.99.1, and then runs `cargo check` for wasm32.
@@ -86,6 +88,7 @@ scripts/check-pack-load.sh
 - `scripts/check-pack.sh` fails unless `bend/scenarios.bend` and `salmong-oracle pack` print `cmp`-equal bytes for seeds 1 to 3 at counts 1, 16 and 64, every pack passes `salmong-oracle validate`, `1 16` matches `assets/scenarios/pack.v1.sha256`, four tampered packs are refused, and 23 Rust mutations of the generator fail as designed.
 - `scripts/check-fallback.sh` removes `bend` from PATH and builds `salmong-oracle` in a new target directory. It fails unless `salmong-oracle pack 1 16`, run with an empty environment and working directory, regenerates the bytes of `assets/scenarios/pack.v1.json`, those bytes match `assets/scenarios/pack.v1.sha256` and pass `salmong-oracle validate`, `salmong-oracle validate` refuses two tampered packs, and a valid seed 2 pack fails `cmp` and the sha256 check. It covers only the regeneration half of the M4.6 no-go check. It decides nothing: the go/no-go decision is pending 레스.
 - `scripts/check-pack-load.sh` removes `bend` from PATH, copies the tree to `target/pack-load-check` and builds it in `target/pack-load-target`, which no other build uses. It fails unless `salmong-oracle pack 1 16` regenerates `assets/scenarios/pack.v1.json` and `salmong-game` built from those bytes loads them through its shipped plugins. A missing, out-of-bounds, non-canonical or different pack and two broken wirings must each be refused. The first run builds Bevy and takes several minutes. It covers the `the game loads it` half of the M4.6 no-go check. It decides nothing: the go/no-go decision is pending 레스.
+- `scripts/check-best-score.sh` runs the `best_probe` example natively and in headless Chrome. It fails unless the best score survives a reload and a browser restart, a higher record stays, a lower or corrupt record is replaced, a full or denied store keeps the session best and warns, and wasm and native finish the run with the same score.
 - `scripts/measure-size.sh` builds the release web app and prints the bytes a browser downloads on a cold load, raw, gzip and brotli, as a table and then one line of JSON. It fails if `index.html` loads a file that is not in `dist/`. It sets no budget. [docs/m5.3-size.md](docs/m5.3-size.md) has the method.
 - `scripts/check-no-comments.sh` fails if a source file holds a code comment. `cargo test` runs the same check.
 - `scripts/check-mutants.sh [base]` runs cargo-mutants on the `.rs` lines changed since `base` (default `origin/main`, or `--all` for every crate but salmong-game) and fails on a missed mutant that `mutants-allow.toml` does not list with a reason. It counts a timeout as caught and skips when no `.rs` file changed. CI runs it on every pull request.

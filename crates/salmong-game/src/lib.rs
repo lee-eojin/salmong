@@ -1,3 +1,4 @@
+pub mod best;
 pub mod input;
 pub mod pack;
 
@@ -31,4 +32,5 @@ pub fn plugins() -> PluginGroupBuilder {
         .add(BlankPlugin)
         .add(input::InputPlugin)
         .add(pack::PackPlugin)
+        .add(best::BestPlugin)
 }
