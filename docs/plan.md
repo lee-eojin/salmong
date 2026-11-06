@@ -21,12 +21,13 @@ UI look and maps are our own.
 
 ## 2. MVP rules
 
-- **World.** Bounded integer grid, starting with 3 stations of 3 different shapes: circle, triangle, square; star only after
-  week 2. One more station every 20 s *(tune)*, seeded, minimum spacing, up to 64. The scenario pack fixes the schedule.
+- **World.** Bounded integer grid, starting with 3 stations of 3 different shapes: circle, triangle, square; star only from
+  tick 8400. One more station every 20 s *(tune)*, seeded, minimum spacing, up to 64. The scenario pack fixes the schedule.
 - **Passenger spawn.** Per-station rate that ramps with time from the pack (section 5). A passenger wants a shape that
   differs from its station's and exists on the map. Spawning pauses while 5,000 passengers are alive (section 6).
 - **Routes.** The player drags between stations: an ordered list, no repeats, at least 2 stops. Extend at either
-  end, insert a stop, or remove one. Lines only, no loops (Q4). Start with 3 routes (max 8), 4 buses (max 32).
+  end, insert a stop, or remove one. Lines only, no loops (Q4). Start with 4 buses. Nothing adds buses in the first
+  release (Q7), and a route needs a bus, so at most 4 routes exist. `MAX_ROUTES` stays 8; the bench `Balance` has 32 buses.
 - **Buses.** Capacity 6 *(tune)*, at least 1 per route, so `AddRoute` needs a free bus. A bus shuttles end to end. Its
   cycle is `Moving -> Alighting -> Boarding -> Moving`. After alighting, a bus whose `dir` has no next stop reverses, so
   boarders see the new direction.
@@ -34,8 +35,8 @@ UI look and maps are our own.
   deadlock cannot occur. Station capacity 8 *(tune)*. While `queue > capacity` the station timer rises 1 per tick;
   otherwise it falls 2 per tick, down to 0. At 1350 ticks (45 s) the game is over.
 - **Score.** Passengers delivered. Tie-break by survival time.
-- **Weekly rewards (optional, M6).** Week = 140 s *(tune)*. The sim pauses and the player picks 1 of 2: +1 route,
-  +2 buses, +2 bus capacity on one route, +4 capacity at one station.
+- **Best score (M6.1).** The best finished run on this device, by score, then by survival ticks. Only a run that reaches
+  game over counts. Nothing about it reaches the sim, so it cannot change a replay or a `state_hash`.
 
 **Routing table.** Recomputed only when the network changes, swapped atomically between ticks. Hop `H = 10`, transfer
 `T = 30` *(tune)*. `INF = u32::MAX` and additions saturate. Stops never repeat, so `(r, d, i)` names one stop of route
@@ -92,19 +93,19 @@ spec/                    Boarding.tla, Boarding.{safety,live,fault}.cfg, Boardin
 web/index.html           Trunk entry, WebGPU adapter check and log, error screen
 ```
 
-`salmong-core` modules: `ids`, `rng` (PCG), `balance`, `scenario`, `network`, `routing`, `boarding`, `spawn`, `overflow`, `rewards`,
+`salmong-core` modules: `ids`, `rng` (PCG), `balance`, `scenario`, `network`, `routing`, `boarding`, `spawn`, `overflow`, `score`,
 `sim`, `event`, `replay`, `trace`. Use `Vec`, `VecDeque` and `BTreeMap` only: `HashMap` order would break determinism.
 
 Key types and signatures (sketch):
 ```rust
 pub struct StationId(u16); pub struct RouteId(u8); pub struct BusId(u16); pub struct PassengerId(u32); pub struct Tick(u64);
-pub enum Shape { Circle, Triangle, Square, Star }  pub enum Dir { Fwd, Back }  pub enum SimMode { Running, Reward, Over }
+pub enum Shape { Circle, Triangle, Square, Star }  pub enum Dir { Fwd, Back }  pub enum SimMode { Running, Over }
 pub struct Passenger { pub id: PassengerId, pub want: Shape, pub born: Tick }
 pub enum BusMode { Active { route: RouteId, dir: Dir }, Retiring }
 pub enum BusPhase { Moving { from: StationId, to: StationId, progress: u32 }, Alighting, Boarding }
 pub enum Command { AddRoute { stops: Vec<StationId> }, EditRoute { route: RouteId, stops: Vec<StationId> },
-                   RemoveRoute { route: RouteId }, AssignBus { route: RouteId }, ChooseReward { index: u8 } }
-pub enum SimEvent { StationSpawned, Boarded, Alighted, Delivered, OverflowStarted, RewardOffered, CommandRejected, GameOver }
+                   RemoveRoute { route: RouteId }, AssignBus { route: RouteId } }
+pub enum SimEvent { StationSpawned, Boarded, Alighted, Delivered, OverflowStarted, CommandRejected, GameOver }
 pub trait Router { fn solve(&self, net: &NetworkSnapshot) -> RouteTable; }
 pub struct DijkstraRouter;                                 // runtime, reverse Dijkstra per shape
 impl Sim {
@@ -112,6 +113,7 @@ impl Sim {
     pub fn queue(&mut self, cmd: Command);                 // runs at the start of the next tick
     pub fn step(&mut self, events: &mut Vec<SimEvent>);    // one fixed tick
     pub fn view(&self) -> SimView<'_>;                     // read-only, for rendering; includes SimMode
+    pub fn final_score(&self) -> Option<FinalScore>;       // Some only in SimMode::Over; no clone, safe every frame
     pub fn state_bytes(&self) -> Vec<u8>;                  // canonical encoding
     pub fn state_hash(&self) -> u64;                       // hash of state_bytes
 }
@@ -120,9 +122,9 @@ impl Sim {
 - **Router contract.** `solve` takes a snapshot within limits and returns a table with `table.rev == net.rev` satisfying
   section 2. `Sim` calls `DijkstraRouter` directly; test-only `ReferenceRouter` (Bellman-Ford) is compared table to table, so no injection.
 - **Tick order.** Run queued commands, recompute the table if dirty (restarting all stopped buses, section 2), spawn, move
-  buses, alight, board, overflow, rewards.
+  buses, alight, board, overflow.
   Commands run in queue order and are validated when they run, so an earlier one can invalidate a later one; a rejected
-  command changes nothing and emits `CommandRejected`. In `SimMode::Reward` a tick runs commands only.
+  command changes nothing and emits `CommandRejected`.
 - **Replay.** Header: `RULES_VERSION` (bumped by any rule or routing change), pack sha256, scenario `id`, `seed`, `Balance`.
   Body: `[(Tick, Command)]` in execution order. `state_bytes` is fixed-order little-endian and covers pending commands,
   RNG state, timers and `seq` counters.
@@ -130,7 +132,7 @@ impl Sim {
 `salmong-game` ECS. Core owns all rules; ECS holds presentation only (`StationView`, `BusView`, `RouteView`, `SimRes`).
 Bevy: pin `=0.20.1`, `default-features = false`. The default set pulls `3d` and `audio`, which we do not need yet. Features are
 listed one by one, not `2d`, which adds `webgl2` (Q2) and gilrs and wayland, which need `pkg-config` to build natively.
-- **States:** `Loading`, `Menu`, `Playing`, `Reward`, `GameOver`. The last three only follow `view().mode`.
+- **States:** `Loading`, `Menu`, `Playing`, `GameOver`. The last two only follow `view().mode`.
 - **FixedUpdate (30 Hz):** `apply_commands -> step_sim -> dispatch_events`. `apply_commands` drains `PendingCommands`
   into `Sim::queue`, so every input belongs to one explicit tick.
 - **Update:** input, drag preview, `sync_views`, `interpolate_buses`, on-change mesh and HUD rebuilds, instance buffers.
@@ -149,6 +151,11 @@ listed one by one, not `2d`, which adds `webgl2` (Q2) and gilrs and wayland, whi
   | No route matches | `AddRoute { stops: trail }` |
 
   Commands are stamped with `view().tick` when `apply_commands` drains them; after `SimMode::Over` they are dropped.
+- **Best score (`salmong_core::score`, `salmong_game::best`, M6.1):** core owns `FinalScore { score, ticks }`, its order, its
+  canonical text `salmong.best.1 <score> <ticks>` and `merge`. Text that does not re-encode to the same bytes reads as no record,
+  as with `parse_pack`. Game owns only the bytes on the device: `localStorage["salmong.best"]` on wasm, and
+  `$XDG_DATA_HOME/salmong/best` (else `$HOME/.local/share/salmong/best`) on native. `record_best` re-reads the store before it
+  writes, so a second tab cannot lower the record. A store that fails keeps the best for the session and warns.
 
 ## 4. TLA+ usage
 
@@ -334,13 +341,14 @@ laptop (Q3), `clang` needs clang 14+. M1 needs no new tools and precedes M2 to k
 | M2.5c Edits | Section 2 edit rules, `Retiring` | Fixture per bus phase, all original stops removed, reversed order, repeated edits while retiring; a bus boarding on an unedited route drops riders whose `stay` turned false before it boards again; an invalid edit leaves `state_hash` unchanged | box |
 | M2.5d Spawning | `spawn`, accumulator, spawn pause | Golden spawn ticks and `want` values; population never passes 5,000 | box |
 | M2.5e Overflow | `overflow`, game over | Game over on exactly tick 1350 of overflow; decay of 2 per tick; safety proptests hold after every microstep | box |
+| M2.5f Station spawning | Stations with `at_tick > 0` join the sim; `StationSpawned`; `RULES_VERSION` bump | Each station joins on exactly its `at_tick`; the table recomputes that tick; a bot that links every new station reaches game over on all 16 scenarios | box |
 | M2.6 Bot games | Greedy bot and do-nothing baseline | 10,000 ticks on all 16 scenarios: bot delivers at least 50% of spawned *(tune)* and outlives the baseline | box |
 | M2.7 Determinism | wasm build of core, run in Node | Per-tick `state_hash` sequence equals native on fixed seeds; replay with a wrong header is refused | box |
 | M2.8 Trace check | `BoardingTrace.tla` (needs M1.1) | TLC accepts traces from sample seeds; dropped, reordered or altered steps are rejected | box |
 | M2.9 Perf workload | Bench `Balance`, `cargo bench` | Workload reaches 5,000 alive; peak `step` recorded before render work starts | box |
 | M3.1 Render | Draw `SimView` from a replay | At equal tick counts, `state_hash` equals headless at several render rates | gpu |
 | M3.2 Input | Pointer to `Command` | Scripted pointer events give the expected command log | box |
-| M3.3 Web game | Browser build, placeholder art | A scripted game ends at the same tick, score and `state_hash` as headless | gpu |
+| M3.3 Web game | Browser build, placeholder art, `BestRes` on the game-over screen | A scripted game ends at the same tick, score and `state_hash` as headless | gpu |
 | M3.4 Edit continuity | Network edits with riders on board | Scripted edits: no bus moves more than one tick's travel per tick, rider counts conserved. Playtest note is advisory | gpu |
 | M4.1 Bend install | Review `install.sh`, pin 2.0.39 | `bend version` is 2.0.39; a hello program prints its line | box |
 | M4.2 First scenario | Port `h32`; `bend/scenarios.bend` | M2.3 vectors pass on the JS lane; `bend/scenarios.bend 1 1` equals the Rust output byte for byte | box |
@@ -349,12 +357,13 @@ laptop (Q3), `clang` needs clang 14+. M1 needs no new tools and precedes M2 to k
 | M4.6 Bend go/no-go | Decide at M3.3 done or 5 working days after M4.1 starts, whichever is first. No M4.4 pass means no-go | No-go: with Bend absent, `salmong-oracle pack` regenerates the pack and the game loads it | box |
 | M5.2 Frame gate | Instancing; `?bench=stress&seed=1` | At most 20 draw calls; section 6 protocol passes; stall, hidden tab, pause and x2 transitions keep the replay's `state_hash` | gpu |
 | M5.3 Size | LTO, `opt-level`, `wasm-opt`, cost of `serde_json` | Download size, as `scripts/measure-size.sh` measures it (`docs/m5.3-size.md`), meets the target set from the M0.2 baseline. The target is not set yet | box |
-| M6.1 Weekly rewards | `rewards`, reward UI; per-route and per-station capacity in spec and core (needs Q7) | TLC and safety proptests pass with reward pause and mixed capacities; illegal `ChooseReward` is rejected | box |
+| M6.1a Best record | `score`: `FinalScore`, canonical text, `merge`; `Sim::final_score` | Score outranks survival and ties break by ticks; non-canonical text reads as no record; `merge` keeps the better run; `final_score` is `None` until `SimMode::Over`; `state_hash` and `RULES_VERSION` unchanged | box |
+| M6.1b Best store | `salmong_game::best`: `BestPlugin`, `localStorage` on wasm, file on native | `scripts/check-best-score.sh`: the record survives reload and browser restart; better, worse, corrupt, full and denied stores behave as section 3 says; wasm and native agree on the run | box |
 | M6.2 Release | Original art and audio, tuning, static hosting | Every asset lists its author and licence; playtest sign-off; hosted URL reaches game over in a clean browser profile | gpu |
 
 ## 9. Open questions
 
-Q1 to Q6 are **DECIDED; LEJ may change them.**
+Q1 to Q7 are **DECIDED; LEJ may change them.**
 - **Q1. Is "routing in Bend" a hard product claim? DECIDED: no.** Bend does offline scenario generation only, and that
   is enough. Rust does all routing. The Bend router oracle is dropped; `ReferenceRouter` keeps a second implementation.
 - **Q2. WebGL2 fallback? DECIDED: none in MVP.** Browsers without WebGPU, or with no adapter, get the error screen.
@@ -362,7 +371,8 @@ Q1 to Q6 are **DECIDED; LEJ may change them.**
 - **Q4. Loop routes in MVP? DECIDED: after MVP.** They change `Dir`, terminals and the spec.
 - **Q5. Bend 2 or Bend 1? DECIDED: Bend 2.**
 - **Q6. Tick rate? DECIDED: 30 Hz with interpolation.**
-- **Q7. First release scope? OPEN.** Are weekly rewards in? Local best score only, or seeded daily challenges too?
+- **Q7. First release scope? DECIDED: local-device best score only.** No weekly rewards and no daily or seeded challenges.
+  With rewards gone, `Capacity` stays one constant in spec and core, and finding 18's M6.1 clause no longer applies.
 
 ## 10. Review findings
 

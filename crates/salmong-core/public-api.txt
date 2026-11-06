@@ -59,6 +59,8 @@ field salmong_core::scenario::StationSpec::shape
 field salmong_core::scenario::StationSpec::weight
 field salmong_core::scenario::StationSpec::x
 field salmong_core::scenario::StationSpec::y
+field salmong_core::score::FinalScore::score
+field salmong_core::score::FinalScore::ticks
 field salmong_core::sim::BusView::at
 field salmong_core::sim::BusView::id
 field salmong_core::sim::BusView::last_arrival
@@ -97,6 +99,7 @@ fn salmong_core::input::trail_command(trail, net)
 fn salmong_core::replay::hash_sequence(scenario, seed, balance, body, ticks)
 fn salmong_core::replay::run(scenario, pack_sha256, seed, balance, replay, ticks)
 fn salmong_core::routing::board_bit(route, dir)
+fn salmong_core::score::merge(stored, run)
 fn salmong_core::spawn::rate(ramp, t)
 impl Clone for salmong_core::balance::Balance
 impl Clone for salmong_core::ids::BusId
@@ -122,6 +125,7 @@ impl Clone for salmong_core::scenario::Scenario
 impl Clone for salmong_core::scenario::ScenarioError
 impl Clone for salmong_core::scenario::Shape
 impl Clone for salmong_core::scenario::StationSpec
+impl Clone for salmong_core::score::FinalScore
 impl Clone for salmong_core::sim::BusMode
 impl Clone for salmong_core::sim::BusPhase
 impl Clone for salmong_core::sim::BusView
@@ -152,6 +156,7 @@ impl Copy for salmong_core::scenario::RampPoint
 impl Copy for salmong_core::scenario::ScenarioError
 impl Copy for salmong_core::scenario::Shape
 impl Copy for salmong_core::scenario::StationSpec
+impl Copy for salmong_core::score::FinalScore
 impl Copy for salmong_core::sim::Passenger
 impl Copy for salmong_core::sim::SimMode
 impl Copy for salmong_core::trace::Action
@@ -180,6 +185,7 @@ impl Debug for salmong_core::scenario::Scenario
 impl Debug for salmong_core::scenario::ScenarioError
 impl Debug for salmong_core::scenario::Shape
 impl Debug for salmong_core::scenario::StationSpec
+impl Debug for salmong_core::score::FinalScore
 impl Debug for salmong_core::sim::BusMode
 impl Debug for salmong_core::sim::BusPhase
 impl Debug for salmong_core::sim::BusView
@@ -218,6 +224,7 @@ impl Eq for salmong_core::scenario::Scenario
 impl Eq for salmong_core::scenario::ScenarioError
 impl Eq for salmong_core::scenario::Shape
 impl Eq for salmong_core::scenario::StationSpec
+impl Eq for salmong_core::score::FinalScore
 impl Eq for salmong_core::sim::BusMode
 impl Eq for salmong_core::sim::BusPhase
 impl Eq for salmong_core::sim::BusView
@@ -237,6 +244,7 @@ impl Ord for salmong_core::ids::PassengerId
 impl Ord for salmong_core::ids::RouteId
 impl Ord for salmong_core::ids::StationId
 impl Ord for salmong_core::ids::Tick
+impl Ord for salmong_core::score::FinalScore
 impl PartialEq for salmong_core::balance::Balance
 impl PartialEq for salmong_core::ids::BusId
 impl PartialEq for salmong_core::ids::Dir
@@ -261,6 +269,7 @@ impl PartialEq for salmong_core::scenario::Scenario
 impl PartialEq for salmong_core::scenario::ScenarioError
 impl PartialEq for salmong_core::scenario::Shape
 impl PartialEq for salmong_core::scenario::StationSpec
+impl PartialEq for salmong_core::score::FinalScore
 impl PartialEq for salmong_core::sim::BusMode
 impl PartialEq for salmong_core::sim::BusPhase
 impl PartialEq for salmong_core::sim::BusView
@@ -280,6 +289,7 @@ impl PartialOrd for salmong_core::ids::PassengerId
 impl PartialOrd for salmong_core::ids::RouteId
 impl PartialOrd for salmong_core::ids::StationId
 impl PartialOrd for salmong_core::ids::Tick
+impl PartialOrd for salmong_core::score::FinalScore
 impl Router for salmong_core::routing::DijkstraRouter
 impl StructuralPartialEq for salmong_core::balance::Balance
 impl StructuralPartialEq for salmong_core::ids::BusId
@@ -305,6 +315,7 @@ impl StructuralPartialEq for salmong_core::scenario::Scenario
 impl StructuralPartialEq for salmong_core::scenario::ScenarioError
 impl StructuralPartialEq for salmong_core::scenario::Shape
 impl StructuralPartialEq for salmong_core::scenario::StationSpec
+impl StructuralPartialEq for salmong_core::score::FinalScore
 impl StructuralPartialEq for salmong_core::sim::BusMode
 impl StructuralPartialEq for salmong_core::sim::BusPhase
 impl StructuralPartialEq for salmong_core::sim::BusView
@@ -352,6 +363,9 @@ method salmong_core::routing::ShapeTable::derive(net, cost, ride)
 method salmong_core::scenario::Scenario::validate(self)
 method salmong_core::scenario::Shape::from_index(index)
 method salmong_core::scenario::Shape::index(self)
+method salmong_core::score::FinalScore::decode(text)
+method salmong_core::score::FinalScore::encode(self)
+method salmong_core::sim::Sim::final_score(self)
 method salmong_core::sim::Sim::new(scenario, seed, balance)
 method salmong_core::sim::Sim::queue(self, cmd)
 method salmong_core::sim::Sim::snapshot(self)
@@ -368,6 +382,7 @@ mod salmong_core::replay
 mod salmong_core::rng
 mod salmong_core::routing
 mod salmong_core::scenario
+mod salmong_core::score
 mod salmong_core::sim
 mod salmong_core::spawn
 mod salmong_core::trace
@@ -390,6 +405,7 @@ struct salmong_core::routing::ShapeTable
 struct salmong_core::scenario::RampPoint
 struct salmong_core::scenario::Scenario
 struct salmong_core::scenario::StationSpec
+struct salmong_core::score::FinalScore
 struct salmong_core::sim::BusView
 struct salmong_core::sim::Passenger
 struct salmong_core::sim::Sim
