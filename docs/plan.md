@@ -267,10 +267,11 @@ station k<64   first a in 0..255 with x = pick(2,w-3,r(1,k,a)), y = pick(2,h-3,r
   last row held. Each tick an active station adds `weight * rate(t)` to its accumulator and spawns one passenger per
   `SPAWN_UNIT = 30000` *(tune)*. Arrival times are deterministic; PCG picks only `want`, uniformly over eligible shapes.
 - **Where Rust reads it.** `salmong-game` embeds the file with `include_bytes!` and in `Loading` calls `salmong_pack::parse_pack`,
-  which keeps serde out of core, rejects unknown fields and runs `Scenario::validate` per entry. `Sim::new` takes one `Scenario`.
+  which keeps serde out of core, rejects unknown fields and runs `Scenario::validate` per entry. `Sim::new` takes one `Scenario`. `PackPlugin` parses on `Startup` until the `Loading` state exists, and a bad embedded pack panics there.
 - **Acceptance check (M4.4).** For seeds 1 to 3 and counts 1, 16, 64, `bend bend/scenarios.bend <seed> <count>` and `salmong-oracle
   pack <seed> <count>` must print `cmp`-equal bytes that pass `Scenario::validate`; seed 1 count 16 must match `pack.v1.sha256`.
   Equal bytes prove agreement only, so Rust mutations (wrong coordinate, hash index, ramp value) must each fail. CLI verified at M4.1: `IO.args()` starts with the program, so `<seed>` is index 1 and `<count>` index 2. `scripts/check-pack.sh` runs this check; `salmong-oracle validate <file>` calls `parse_pack`, which runs `Scenario::validate`.
+- **Fallback check (M4.6).** `scripts/check-fallback.sh` removes `bend` from PATH, regenerates the pack with `salmong-oracle pack 1 16`, requires it `cmp`-equal to `pack.v1.json` and equal to `pack.v1.sha256`, and loads it through the shipped plugins of a scratch `salmong-game` build. It proves that the no-go path works and decides nothing: the go/no-go decision is pending 레스. `scripts/check-webgpu-startup.mjs` requires the shipped wasm to log `salmong: scenario pack loaded, 16 scenarios` in Chrome.
 
 ## 6. Web 60 fps budget
 
@@ -346,7 +347,7 @@ laptop (Q3), `clang` needs clang 14+. M1 needs no new tools and precedes M2 to k
 | M4.2 First scenario | Port `h32`; `bend/scenarios.bend` | M2.3 vectors pass on the JS lane; `bend/scenarios.bend 1 1` equals the Rust output byte for byte | box |
 | M4.4 Pack check | Section 5 acceptance check | All seeds and counts `cmp` equal; every mutation fails | box |
 | M4.5 Native lane | Native binary | Bytes equal the JS lane at 1 and 8 threads, count 1,024; times recorded, not gated | clang |
-| M4.6 Bend go/no-go | Decide at M3.3 done or 5 working days after M4.1 starts, whichever is first. No M4.4 pass means no-go | No-go: with Bend absent, `salmong-oracle pack` regenerates the pack and the game loads it | box |
+| M4.6 Bend go/no-go | Decide at M3.3 done or 5 working days after M4.1 starts, whichever is first. No M4.4 pass means no-go | No-go: with Bend absent, `salmong-oracle pack` regenerates the pack and the game loads it. `scripts/check-fallback.sh` runs this check; the decision is pending 레스 | box |
 | M5.2 Frame gate | Instancing; `?bench=stress&seed=1` | At most 20 draw calls; section 6 protocol passes; stall, hidden tab, pause and x2 transitions keep the replay's `state_hash` | gpu |
 | M5.3 Size | LTO, `opt-level`, `wasm-opt`, cost of `serde_json` | Download size meets the target set from the M0.2 baseline | box |
 | M6.1 Weekly rewards | `rewards`, reward UI; per-route and per-station capacity in spec and core (needs Q7) | TLC and safety proptests pass with reward pause and mixed capacities; illegal `ChooseReward` is rejected | box |
