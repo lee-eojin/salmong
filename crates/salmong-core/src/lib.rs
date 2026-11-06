@@ -6,6 +6,7 @@ pub mod replay;
 pub mod rng;
 pub mod routing;
 pub mod scenario;
+pub mod score;
 pub mod sim;
 pub mod spawn;
 pub mod trace;

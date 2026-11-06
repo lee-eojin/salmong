@@ -6,6 +6,7 @@ use crate::network::{MAX_ROUTES, NetworkSnapshot};
 use crate::rng::Pcg32;
 use crate::routing::{DijkstraRouter, RouteTable, Router, board_bit};
 use crate::scenario::{RampPoint, Scenario, Shape};
+use crate::score::FinalScore;
 use crate::spawn::rate;
 use crate::trace::Action;
 #[cfg(feature = "trace")]
@@ -271,6 +272,13 @@ impl Sim {
             self.mode = SimMode::Over;
             events.push(SimEvent::GameOver);
         }
+    }
+
+    pub fn final_score(&self) -> Option<FinalScore> {
+        (self.mode == SimMode::Over).then_some(FinalScore {
+            score: self.score,
+            ticks: self.tick.0,
+        })
     }
 
     pub fn view(&self) -> SimView {
