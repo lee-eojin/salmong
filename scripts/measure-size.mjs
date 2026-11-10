@@ -107,11 +107,13 @@ const files = paths.map((path) => measure(dist, path)).sort(byName);
 const total = Object.fromEntries(
   COLUMNS.map((column) => [column, files.reduce((sum, file) => sum + file[column], 0)]),
 );
+const wasmOptLevel =
+  readFileSync("web/index.html", "utf8").match(/data-wasm-opt="([^"]*)"/)?.[1] ?? "default";
 const record = {
-  schema: 1,
+  schema: 2,
   commit: firstLine("git", "rev-parse", "HEAD"),
   dirty: run("git", "status", "--porcelain").length > 0,
-  wasm_opt: readFileSync("web/index.html", "utf8").match(/data-wasm-opt="([^"]*)"/)?.[1] ?? "default",
+  wasm_opt: wasmOptLevel,
   tools: {
     rustc: firstLine("rustc", "-V"),
     trunk: firstLine("trunk", "--version"),
@@ -119,6 +121,7 @@ const record = {
     gzip: firstLine("gzip", "--version"),
     node: version,
     brotli: versions.brotli,
+    wasm_opt: wasmOptLevel === "0" ? "not run" : firstLine("wasm-opt", "--version"),
   },
   method: {
     gzip: "gzip -9 -n",
