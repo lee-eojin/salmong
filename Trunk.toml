@@ -1,2 +1,5 @@
 [build]
 target = "web/index.html"
+
+[tools]
+wasm_opt = "version_131"
