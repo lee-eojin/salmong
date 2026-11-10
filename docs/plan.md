@@ -306,6 +306,9 @@ overlaps it, so stages are guides, not a sum: the gate is measured frame interva
 - **Fixed timestep:** 30 Hz via `Time<Fixed>`, 60 ticks/s at x2. A render frame runs at most 2 ticks; time beyond that is
   discarded (`Time<Virtual>::max_delta` is 2 timesteps, M3.1a), so the sim slows instead of spiralling. Hidden tab or pause: no ticks, accumulator cleared on return. Inputs
   are bound to tick numbers, so all of this changes when ticks run, never what they compute.
+  `salmong_game::clock` (M5.2a) owns this: `ClockCommand` (`Pause`, `Resume`, `SetSpeed`) and the window's `WindowOccluded` and
+  `AppLifecycle` messages pause `Time<Virtual>` or set its relative speed; the frame that returns from a halt runs 0 ticks and clears
+  the overstep. x2 keeps the 2-tick cap, so it reaches 60 ticks/s only at 30 fps or more. No key is bound yet.
 
 Measurement:
 - **Protocol.** Stable Chrome, 1920x1080 at device-pixel ratio 1, mains power, no other tabs, on the laptop recorded at M0.3.
@@ -362,6 +365,7 @@ laptop (Q3), `skip` is out of MVP and runs nowhere. M1 needs no new tools and pr
 | M4.6a Pack loader | `salmong_game::pack`: `PackPlugin`, `include_bytes!`, `parse_pack`, `ScenarioPack` | `scripts/check-pack-load.sh`: with Bend absent the shipped plugins load the regenerated pack, and bad packs and broken wirings are refused. `scripts/check-webgpu-startup.mjs`: the shipped wasm logs the load in Chrome. Size change recorded in `docs/m5.3-size.md` | box |
 | M4.6 Bend go/no-go | Decided 2026-11-06 by 레스: GO. Bend keeps offline scenario generation (section 5) | With Bend absent, `salmong-oracle pack` regenerates the pack and the game loads it. `scripts/check-fallback.sh` proves the regeneration and `scripts/check-pack-load.sh` proves the load; both stay as the fallback gates | box |
 | M5.2 Frame gate | Instancing; `?bench=stress&seed=1` | At most 20 draw calls; section 6 protocol passes; stall, hidden tab, pause and x2 transitions keep the replay's `state_hash` | gpu |
+| M5.2a Clock transitions | `salmong_game::clock`: `ClockPlugin`, `Clock`, `ClockCommand`, `Speed`; pause, x2, hidden tab, suspend | `crates/salmong-game/tests/clock.rs`: a replay driven through stall, pause, hidden, suspend and x2 transitions gives per-tick `state_hash` equal to `replay::hash_sequence`; halted frames run 0 ticks; the return frame clears the overstep | box |
 | M5.3 Size | LTO, `opt-level`, `wasm-opt`, cost of `serde_json` | Download size, as `scripts/measure-size.sh` measures it (`docs/m5.3-size.md`), meets the provisional target: brotli total 6,000,000 bytes (`total.brotli`, precompressed brotli host). The script does not fail the target. Not complete: completion waits for the GPU build | box |
 | M6.1a Best record | `score`: `FinalScore`, canonical text, `merge`; `Sim::final_score` | Score outranks survival and ties break by ticks; non-canonical text reads as no record; `merge` keeps the better run; `final_score` is `None` until `SimMode::Over`; `state_hash` and `RULES_VERSION` unchanged | box |
 | M6.1b Best store | `salmong_game::best`: `BestPlugin`, `localStorage` on wasm, file on native | `scripts/check-best-score.sh`: the record survives reload and browser restart; better, worse, corrupt, full and denied stores behave as section 3 says; wasm and native agree on the run | box |
