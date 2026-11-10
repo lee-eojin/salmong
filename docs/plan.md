@@ -371,11 +371,11 @@ laptop (Q3), `skip` is out of MVP and runs nowhere. M1 needs no new tools and pr
 | M5.3a Size settings | Release profile `opt-level = 3`, fat LTO, one codegen unit; `wasm-opt -O3` (binaryen version_131) | `docs/m5.3-size.md` M5.3a variants: adopted C1 measures 3,596,216 brotli bytes; `opt-level = "s"` is measured only and reopens after the M5.2 laptop gate | box |
 | M6.1a Best record | `score`: `FinalScore`, canonical text, `merge`; `Sim::final_score` | Score outranks survival and ties break by ticks; non-canonical text reads as no record; `merge` keeps the better run; `final_score` is `None` until `SimMode::Over`; `state_hash` and `RULES_VERSION` unchanged | box |
 | M6.1b Best store | `salmong_game::best`: `BestPlugin`, `localStorage` on wasm, file on native | `scripts/check-best-score.sh`: the record survives reload and browser restart; better, worse, corrupt, full and denied stores behave as section 3 says; wasm and native agree on the run | box |
-| M6.2 Release | Original art and audio, tuning, static hosting | Every asset lists its author and licence; playtest sign-off; hosted URL reaches game over in a clean browser profile | gpu |
+| M6.2 Release | Original art and audio, tuning, static hosting | Every asset lists its author and licence; playtest sign-off; hosted URL reaches game over in a clean browser profile. Blocked: Q13 to Q18 (section 9) are PENDING | gpu |
 
 ## 9. Open questions
 
-Q1 to Q12 are **DECIDED; LEJ may change them.**
+Q1 to Q12 are **DECIDED; LEJ may change them.** Q13 to Q18 are **PENDING**: LEJ has not answered them, and no unit may act on one beyond its Meanwhile line.
 - **Q1. Is "routing in Bend" a hard product claim? DECIDED: no.** Bend does offline scenario generation only, and that
   is enough. Rust does all routing. The Bend router oracle is dropped; `ReferenceRouter` keeps a second implementation.
 - **Q2. WebGL2 fallback? DECIDED: none in MVP.** Browsers without WebGPU, or with no adapter, get the error screen.
@@ -403,6 +403,103 @@ Q1 to Q12 are **DECIDED; LEJ may change them.**
 - **Q12. Pause shown or recorded? DECIDED (레스, 2026-11-10): shown, not recorded.** A small placeholder shape (two bars for
   pause, two triangles for x2) reading `Clock`; no full-screen overlay. Pause, hidden and x2 are not in the replay header or
   the score rules. Revisit only if online rankings or shared challenges arrive.
+- **Q13. Who makes the art, and in what style? PENDING.** The repository holds no art file. M3.3 uses placeholder art. The
+  intro and the M6.2 row say the art is our own and original.
+  - **A.** 레스 makes it. Author and licence are then known. The file format decides the rest (see the style line).
+  - **B.** The agent makes it in code: shapes and colours in the fragment shader, no image file. 0 asset bytes, no new Bevy
+    feature, and the section 6 batching (one instanced draw per kind, at most 20 draws) holds. Every art change is a code
+    change and a rebuild, and the look is limited to what shapes and colours in a shader can show. Author is the repository
+    authors; licence is the code licence (Q15).
+  - **C.** A paid artist. The contract must name the licence. Cost and schedule are outside this repository.
+  - **D.** A third-party pack (CC0 or CC BY). This conflicts with "our own" in the intro and "Original" in the M6.2 row, so LEJ
+    must change those lines first. CC BY needs a credit the player can see.
+  - **E.** AI-generated images. The M6.2 check needs an author and a licence for each asset; LEJ must say what to write
+    there, and the tool's terms must allow release.
+  - **Style, any maker:** shader shapes (as B) or raster sprites. Sprites need no new Bevy feature: the `png` decoder is
+    already in the wasm through `2d_bevy_render`. Sprite files count in `dist/` or in the wasm (`docs/m5.3-size.md`, What
+    counts), and they change the batching, so M5.2 must pass again. Text needs a font:
+    `bevy_text` is already built in through `2d_bevy_render`, but `default_font` is off and no font file exists. A font
+    file needs its own author and licence row.
+  - **New file types:** `crates/salmong-core/tests/no_comments.rs` fails on a tracked file with no syntax row (`.png`,
+    `.svg`, `.ttf`, `.wgsl`, `.ogg`, `.wav`). Each new type needs a row, and that `.rs` change runs the CI mutants job.
+  - **Blocks:** M6.2 (art), and M5.3 completion if the art adds bytes.
+  - **Meanwhile:** M3.3 placeholder shapes stay and no asset file lands. Free to reverse.
+- **Q14. Does audio ship in the first release, and from what source? PENDING.** Section 3 keeps Bevy `audio` off. The M6.2
+  row says "art and audio".
+  - **A.** No audio in the first release. The M6.2 row loses "and audio". Nothing else changes.
+  - **B.** Sound effects only. Bevy `bevy_audio` plus one format: `wav`, or `vorbis` (the `audio` feature is `bevy_audio`
+    plus `vorbis`). This adds `rodio` and `cpal` to the wasm. The size cost is not measured; measure it with
+    `scripts/measure-size.sh` before adoption. Sounds follow `SimEvent` in presentation only, so `state_hash` does not change.
+  - **C.** Sound effects and music. Music is the larger cost: 120 s of Ogg Vorbis at 96 kbit/s is about 1,440,000 bytes,
+    and brotli does not shrink it. Headroom today is 2,403,784 bytes (6,000,000 less C1 at 3,596,216), before the GPU build.
+  - **D.** Web Audio from `web/index.html`, no Bevy audio. No Rust size cost. It is a second code path, and the native
+    build stays silent.
+  - **B to D:** a browser starts audio only after a user gesture (from memory, confirm); the first pointer press of Q8 fits. A mute control is
+    needed, and Q9 binds no key for it. The source options are the same as Q13 A to E, with the same author and licence duty.
+  - **Blocks:** M6.2 (audio).
+  - **Meanwhile:** no audio, Bevy features unchanged. A size measurement of `audio` on a branch, record only, is allowed.
+    Free to reverse.
+- **Q15. Which licence covers the code and the assets? PENDING.** The repository has no `LICENSE` file and no `license`
+  field in any `Cargo.toml`. With no licence, nobody else may reuse the code or the assets.
+  - **A.** `MIT OR Apache-2.0` for code, as Bevy uses. Add both licence texts and `license` in `[workspace.package]`.
+  - **B.** Copyleft, `GPL-3.0-or-later` or `AGPL-3.0-or-later`. Compatible with the MIT and Apache-2.0 dependencies (from
+    memory, not legal advice; confirm). Forks must stay open.
+  - **C.** No licence, all rights reserved. Nothing to add. A public repository then shows source that others may not reuse.
+  - **D.** Code under A or B, assets under a separate licence (CC BY 4.0, CC BY-NC 4.0, or all rights reserved). The
+    per-asset list of the M6.2 check then names the asset licence.
+  - **Any option:** the shipped wasm holds Bevy and other MIT or Apache-2.0 code, and those licences ask for their notice in
+    copies. A notice file in `dist/` counts in the download size. No tool for this is installed (section 7 lists none).
+  - **File name:** `no_comments.rs` has no row for a file named `LICENSE`, so the test fails on it. Use `.txt` or `.md`
+    names, or add `BY_NAME` rows.
+  - **Blocks:** M6.2 (the "every asset lists its author and licence" check, and any public release).
+  - **Meanwhile:** none: blocked. A licence granted in public cannot be taken back for copies already made.
+- **Q16. Which host, and which URL? PENDING.** CI has no deploy job. Q7 needs no server, so a static host is enough. WebGPU
+  (Q2) needs HTTPS. The wasm runs on one thread (section 6), so no COOP or COEP header is needed. The host must send `.wasm`
+  as `application/wasm`. Host limits below are from memory on 2026-11-10; confirm them on the host's pages before the pick.
+  - **A.** GitHub Pages, project path `/salmong/`. Trunk needs `--public-url /salmong/`, and `scripts/measure-size.mjs`
+    then fails: it accepts only URLs that start with `/` and name a file in `dist/`. Pages sends gzip, not brotli, and
+    allows no header control, so the 6,000,000 target (brotli, precompressed host) has no matching column: C1 is 6,222,720
+    in gzip. CI gets a deploy job with `pages: write`. The free plan needs a public repository.
+  - **B.** GitHub Pages with a custom domain. Root path, so the size script works as it is. Same gzip limit as A. LEJ buys
+    the domain and owns its DNS.
+  - **C.** An edge host with brotli (Cloudflare Pages, Netlify). Root path on the host's subdomain. The host picks the
+    brotli level, so real bytes are above the `brotli` column (`docs/m5.3-size.md`, Columns). Cloudflare Pages limits one
+    file to 25 MiB (26,214,400 bytes); the C1 wasm is 26,462,969 raw and D1 is 18,308,433 (Q18). CI needs an account token
+    as a secret.
+  - **D.** itch.io. Upload is a zip; the game runs in an iframe from another origin and needs relative URLs, which the
+    size script also rejects. Storage in that iframe can be partitioned, so `scripts/check-best-score.sh` does not cover
+    it and M6.1b needs a new check there.
+  - **E.** Our own server or object store with files compressed ahead of time. The only option that matches the target's
+    assumption exactly. We set `Content-Encoding: br` and `Content-Type: application/wasm`. LEJ pays for it and runs it.
+  - **Also needed with the pick:** the exact URL, whether the repository is public, and whether deploy runs on each push to
+    `main` or on a tag.
+  - **Blocks:** M6.2 (hosting, and the "hosted URL reaches game over" check); M5.3 completion (which column gates).
+  - **Meanwhile:** none: blocked. Publishing is outward. `trunk serve --release` stays the only way to run the game.
+- **Q17. Who tunes, who signs off the playtest, and what counts as sign-off? PENDING.** Section 2 and section 5 hold
+  *(tune)* values. The M3.4 playtest note is advisory. Q8 fixes scenario 0, so play covers scenario 0 only. Q3 fixes
+  the laptop.
+  - **A.** 레스 alone, by judgement. Sign-off is one dated line in the M6.2 row, as the M0.3 row has.
+  - **B.** 레스 plus named outside players. LEJ sets how many, and whether a build goes to them before release (that needs Q16).
+  - **C.** A written checklist that 레스 fills in (for example run length, a new player draws a route with no help, game
+    over is understood). LEJ sets the items and the numbers.
+  - **D.** Bot numbers only (M2.6). The box can run it, but a bot cannot judge feel, and it replaces "playtest" in the row.
+  - **Cost of a tuning change:** a rule or routing constant bumps `RULES_VERSION` (now 2) and needs the exact fixtures of
+    M2.5 and the M2.6 threshold derived again. A generator constant bumps `gen`, and `pack.v1.json` and `pack.v1.sha256`
+    are regenerated. The stored best (`salmong.best.1`, section 3) holds no rules version, so tuning after release mixes
+    scores from different rules.
+  - **Blocks:** M6.2 (tuning and sign-off).
+  - **Meanwhile:** all *(tune)* values stay as they are. For sign-off, none: blocked.
+- **Q18. What gives way if the release build passes the size target? PENDING.** `docs/m5.3-size.md` (Revisit, D1) reopens
+  `opt-level = "s"` only when all three hold: the GPU build exists, the M5.2 gate passes on the laptop with D1 itself, and
+  the adopted build measures over 5,700,000 brotli bytes. D1 saves 523,321 bytes on the M5.3a tree. Q13, Q14 and the
+  Q15 notice file add bytes; Q16 can change the column that gates.
+  - **A.** Keep the rule as written. If a condition fails, cut assets.
+  - **B.** Run the M5.2 gate with D1 as a second run in the same laptop session, before it is needed. M6.2 can then
+    switch without a wait. Cost: one more gate run by 레스.
+  - **C.** Raise the target, which is provisional. No build change; the first load is slower.
+  - **D.** Close D1 for good and delete the Revisit paragraph. Asset cuts are then the only answer.
+  - **Blocks:** M5.3 completion; M6.2 if the release build passes the target.
+  - **Meanwhile:** C1 stays adopted and D1 stays measure-only (M5.3a row). Free to reverse.
 
 ## 10. Review findings
 
