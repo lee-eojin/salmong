@@ -12,6 +12,9 @@ field salmong_game::pack::ScenarioPack::0
 field salmong_game::sim::SimEventMessage::0
 field salmong_game::sim::SimEvents::0
 fn salmong_game::best::record_best(sim, store, best)
+fn salmong_game::bus::blend(prev, cur, alpha)
+fn salmong_game::bus::bus_pos(bus, stations, travel_ticks)
+fn salmong_game::bus::track_buses(sim, track)
 fn salmong_game::input::apply_commands(sim, pending, log)
 fn salmong_game::input::pointer_event(ev, fit)
 fn salmong_game::plugins()
@@ -22,6 +25,7 @@ impl Clone for salmong_game::clock::Speed
 impl Clone for salmong_game::sim::SimEventMessage
 impl Component for salmong_game::best::BestRes
 impl Component for salmong_game::best::BestStore
+impl Component for salmong_game::bus::BusTrack
 impl Component for salmong_game::clock::Clock
 impl Component for salmong_game::input::CommandLog
 impl Component for salmong_game::input::PendingCommands
@@ -39,6 +43,7 @@ impl Debug for salmong_game::clock::Speed
 impl Debug for salmong_game::sim::SimEventMessage
 impl Default for salmong_game::best::BestRes
 impl Default for salmong_game::best::BestStore
+impl Default for salmong_game::bus::BusTrack
 impl Default for salmong_game::clock::Clock
 impl Default for salmong_game::clock::Speed
 impl Default for salmong_game::input::CommandLog
@@ -57,12 +62,14 @@ impl PartialEq for salmong_game::clock::Speed
 impl PartialEq for salmong_game::sim::SimEventMessage
 impl Plugin for salmong_game::BlankPlugin
 impl Plugin for salmong_game::best::BestPlugin
+impl Plugin for salmong_game::bus::BusPlugin
 impl Plugin for salmong_game::clock::ClockPlugin
 impl Plugin for salmong_game::input::InputPlugin
 impl Plugin for salmong_game::pack::PackPlugin
 impl Plugin for salmong_game::sim::SimPlugin
 impl Resource for salmong_game::best::BestRes
 impl Resource for salmong_game::best::BestStore
+impl Resource for salmong_game::bus::BusTrack
 impl Resource for salmong_game::clock::Clock
 impl Resource for salmong_game::input::CommandLog
 impl Resource for salmong_game::input::PendingCommands
@@ -78,6 +85,12 @@ impl StructuralPartialEq for salmong_game::sim::SimEventMessage
 method salmong_game::best::BestStore::at(path)
 method salmong_game::best::BestStore::load(self)
 method salmong_game::best::BestStore::save(self, text)
+method salmong_game::bus::BusTrack::at(self, alpha)
+method salmong_game::bus::BusTrack::cur(self)
+method salmong_game::bus::BusTrack::new(travel_ticks)
+method salmong_game::bus::BusTrack::prev(self)
+method salmong_game::bus::BusTrack::push(self, tick, cur)
+method salmong_game::bus::BusTrack::tick(self)
 method salmong_game::clock::Clock::halted(self)
 method salmong_game::clock::Clock::hidden(self)
 method salmong_game::clock::Clock::paused(self)
@@ -87,6 +100,7 @@ method salmong_game::sim::ReplayFeed::new(body)
 method salmong_game::sim::ReplayFeed::remaining(self)
 mod salmong_game
 mod salmong_game::best
+mod salmong_game::bus
 mod salmong_game::clock
 mod salmong_game::input
 mod salmong_game::pack
@@ -95,6 +109,8 @@ struct salmong_game::BlankPlugin
 struct salmong_game::best::BestPlugin
 struct salmong_game::best::BestRes
 struct salmong_game::best::BestStore
+struct salmong_game::bus::BusPlugin
+struct salmong_game::bus::BusTrack
 struct salmong_game::clock::Clock
 struct salmong_game::clock::ClockPlugin
 struct salmong_game::input::CommandLog
