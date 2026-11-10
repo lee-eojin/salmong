@@ -1,4 +1,5 @@
 pub mod best;
+pub mod bus;
 pub mod clock;
 pub mod input;
 pub mod pack;
@@ -35,6 +36,7 @@ pub fn plugins() -> PluginGroupBuilder {
         .add(input::InputPlugin)
         .add(sim::SimPlugin)
         .add(clock::ClockPlugin)
+        .add(bus::BusPlugin)
         .add(pack::PackPlugin)
         .add(best::BestPlugin)
 }

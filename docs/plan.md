@@ -134,7 +134,7 @@ impl Sim {
 Bevy: pin `=0.20.1`, `default-features = false`. The default set pulls `3d` and `audio`, which we do not need yet. Features are
 listed one by one, not `2d`, which adds `webgl2` (Q2) and gilrs and wayland, which need `pkg-config` to build natively.
 - **States:** `Loading`, `Menu`, `Playing`, `GameOver`. The last two only follow `view().mode`.
-- **FixedUpdate (30 Hz, `salmong_game::sim::SimPlugin`, M3.1a):** `feed_replay -> apply_commands -> step_sim -> dispatch_events`. `feed_replay` runs only with a `ReplayFeed` and pushes body commands into `PendingCommands` on their tick, so replayed and live commands share one path. `apply_commands` drains `PendingCommands`
+- **FixedUpdate (30 Hz, `salmong_game::sim::SimPlugin`, M3.1a):** `feed_replay -> apply_commands -> step_sim -> dispatch_events`, and `track_buses` after `step_sim` (M3.4a). `feed_replay` runs only with a `ReplayFeed` and pushes body commands into `PendingCommands` on their tick, so replayed and live commands share one path. `apply_commands` drains `PendingCommands`
   into `Sim::queue`, so every input belongs to one explicit tick.
 - **Update:** input, drag preview, `sync_views`, `interpolate_buses`, on-change mesh and HUD rebuilds, instance buffers.
   Buses blend previous and current tick snapshots by the fixed overstep fraction. A bus with no previous snapshot snaps.
@@ -358,6 +358,7 @@ laptop (Q3), `skip` is out of MVP and runs nowhere. M1 needs no new tools and pr
 | M3.2 Input | Pointer to `Command` | Scripted pointer events give the expected command log | box |
 | M3.3 Web game | Browser build, placeholder art, `BestRes` on the game-over screen | A scripted game ends at the same tick, score and `state_hash` as headless | gpu |
 | M3.4 Edit continuity | Network edits with riders on board | Scripted edits: no bus moves more than one tick's travel per tick, rider counts conserved. Playtest note is advisory | gpu |
+| M3.4a Bus interpolation | `salmong_game::bus`: `bus_pos`, `blend`, `BusTrack` (previous and current tick positions), `track_buses`, `BusPlugin`. No drawing | `crates/salmong-game/tests/bus_interp.rs`: edits that remove all stops, reverse a route or remove it, swept over 90 edit ticks: no bus moves more than one tick's travel per tick, segments finish, blends lie between snapshots, new buses snap, riders + queued + delivered equals spawned every tick | box |
 | M4.1 Bend install | Review `install.sh`, pin 2.0.39 | `bend version` is 2.0.39; a hello program prints its line | box |
 | M4.2 First scenario | Port `h32`; `bend/scenarios.bend` | M2.3 vectors pass on the JS lane; `bend/scenarios.bend 1 1` equals the Rust output byte for byte | box |
 | M4.4 Pack check | Section 5 acceptance check | All seeds and counts `cmp` equal; every mutation fails | box |
