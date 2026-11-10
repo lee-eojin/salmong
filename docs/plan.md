@@ -407,15 +407,17 @@ Q1 to Q12 are **DECIDED; LEJ may change them.** Q13 to Q18 are **PENDING**: LEJ 
   intro and the M6.2 row say the art is our own and original.
   - **A.** 레스 makes it. Author and licence are then known. The file format decides the rest (see the style line).
   - **B.** The agent makes it in code: shapes and colours in the fragment shader, no image file. 0 asset bytes, no new Bevy
-    feature, and the section 6 batching (one instanced draw per kind, at most 20 draws) holds. Author is the repository
+    feature, and the section 6 batching (one instanced draw per kind, at most 20 draws) holds. Every art change is a code
+    change and a rebuild, and the look is limited to what shapes and colours in a shader can show. Author is the repository
     authors; licence is the code licence (Q15).
   - **C.** A paid artist. The contract must name the licence. Cost and schedule are outside this repository.
   - **D.** A third-party pack (CC0 or CC BY). This conflicts with "our own" in the intro and "Original" in the M6.2 row, so LEJ
     must change those lines first. CC BY needs a credit the player can see.
   - **E.** AI-generated images. The M6.2 check needs an author and a licence for each asset; LEJ must say what to write
     there, and the tool's terms must allow release.
-  - **Style, any maker:** shader shapes (as B) or raster sprites. Sprites need Bevy `png` (off today), count in `dist/` or
-    in the wasm (`docs/m5.3-size.md`, What counts), and change the batching, so M5.2 must pass again. Text needs a font:
+  - **Style, any maker:** shader shapes (as B) or raster sprites. Sprites need no new Bevy feature: the `png` decoder is
+    already in the wasm through `2d_bevy_render`. Sprite files count in `dist/` or in the wasm (`docs/m5.3-size.md`, What
+    counts), and they change the batching, so M5.2 must pass again. Text needs a font:
     `bevy_text` is already built in through `2d_bevy_render`, but `default_font` is off and no font file exists. A font
     file needs its own author and licence row.
   - **New file types:** `crates/salmong-core/tests/no_comments.rs` fails on a tracked file with no syntax row (`.png`,
@@ -432,7 +434,7 @@ Q1 to Q12 are **DECIDED; LEJ may change them.** Q13 to Q18 are **PENDING**: LEJ 
     and brotli does not shrink it. Headroom today is 2,403,784 bytes (6,000,000 less C1 at 3,596,216), before the GPU build.
   - **D.** Web Audio from `web/index.html`, no Bevy audio. No Rust size cost. It is a second code path, and the native
     build stays silent.
-  - **B to D:** a browser starts audio only after a user gesture; the first pointer press of Q8 fits. A mute control is
+  - **B to D:** a browser starts audio only after a user gesture (from memory, confirm); the first pointer press of Q8 fits. A mute control is
     needed, and Q9 binds no key for it. The source options are the same as Q13 A to E, with the same author and licence duty.
   - **Blocks:** M6.2 (audio).
   - **Meanwhile:** no audio, Bevy features unchanged. A size measurement of `audio` on a branch, record only, is allowed.
@@ -440,8 +442,8 @@ Q1 to Q12 are **DECIDED; LEJ may change them.** Q13 to Q18 are **PENDING**: LEJ 
 - **Q15. Which licence covers the code and the assets? PENDING.** The repository has no `LICENSE` file and no `license`
   field in any `Cargo.toml`. With no licence, nobody else may reuse the code or the assets.
   - **A.** `MIT OR Apache-2.0` for code, as Bevy uses. Add both licence texts and `license` in `[workspace.package]`.
-  - **B.** Copyleft, `GPL-3.0-or-later` or `AGPL-3.0-or-later`. Compatible with the MIT and Apache-2.0 dependencies. Forks
-    must stay open.
+  - **B.** Copyleft, `GPL-3.0-or-later` or `AGPL-3.0-or-later`. Compatible with the MIT and Apache-2.0 dependencies (from
+    memory, not legal advice; confirm). Forks must stay open.
   - **C.** No licence, all rights reserved. Nothing to add. A public repository then shows source that others may not reuse.
   - **D.** Code under A or B, assets under a separate licence (CC BY 4.0, CC BY-NC 4.0, or all rights reserved). The
     per-asset list of the M6.2 check then names the asset licence.
