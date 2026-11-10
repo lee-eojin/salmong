@@ -163,6 +163,12 @@ fn check_tick(app: &App, before: &SimView, last_cur: &[(BusId, Vec2)], st: &[Sta
         .map(|b| (b.id, bus_pos(b, st, TRAVEL)))
         .collect();
     assert_eq!(tr.cur(), &mapped[..]);
+    for (b, (_, q)) in v.buses.iter().zip(tr.cur()) {
+        assert!(
+            (pos(b, st) - *q).length() <= EPS,
+            "bus_pos disagrees with the reference"
+        );
+    }
     assert_eq!(tr.prev(), last_cur);
     for b in &v.buses {
         let Some(bb) = before.buses.iter().find(|x| x.id == b.id) else {
