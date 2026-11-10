@@ -10,4 +10,3 @@ rust-version = "1.97.1"
 opt-level = 3
 lto = "fat"
 codegen-units = 1
-strip = true
