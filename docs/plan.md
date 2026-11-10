@@ -1,6 +1,6 @@
 # salmong: design plan
 
-Status: reviewed 2026-11-05 (section 10). M0.2 adds a blank Bevy app; no game rules exist yet. M0.3 awaits its laptop run (`docs/m0.3-webgpu-check.md`). Numbers marked *(tune)* are starting
+Status: reviewed 2026-11-05 (section 10). M0.2 adds a blank Bevy app; no game rules exist yet. M0.3 passed on the reference laptop on 2026-11-10 (`docs/m0.3-webgpu-check.md`). Numbers marked *(tune)* are starting
 values. All budgets are unmeasured targets until M0 or M5.
 
 salmong is a bus-route puzzle in the same genre as Mini Metro. It shares mechanics only: names, art, audio,
@@ -337,7 +337,7 @@ laptop (Q3), `skip` is out of MVP and runs nowhere. M1 needs no new tools and pr
 |---|---|---|---|
 | M0.1 Rust | Use installed 1.99.1 (section 7), MSRV 1.97.1, wasm target | `scripts/check-toolchain.sh`: `rustc -V` is 1.99.1; empty lib passes `cargo check` for wasm32 | box |
 | M0.2 Blank web build | Trunk, wasm-bindgen-cli, blank Bevy 2D app | `scripts/check-web-build.sh`: `trunk build --release` exits 0; wasm size recorded; `cargo tree -e features` shows whether `webgpu` overrides the `webgl2` that `2d` pulls in | box |
-| M0.3 WebGPU | Run the blank app on the reference laptop (`docs/m0.3-webgpu-check.md`) | App clears to a known colour and logs a WebGPU adapter; device recorded. `scripts/check-webgpu-startup.mjs` covers startup on the box | gpu |
+| M0.3 WebGPU | Run the blank app on the reference laptop (`docs/m0.3-webgpu-check.md`) | App clears to a known colour and logs a WebGPU adapter; device recorded. `scripts/check-webgpu-startup.mjs` covers startup on the box. PASS 2026-11-10: MacBook Pro, Apple M5 Pro, macOS 26.4.1, Chrome 157 | gpu |
 | M1.1 Safety | `Boarding.tla`, safety and fault configs | TLC completes the safety config; each `Fault` gives a counterexample on its property | box |
 | M1.2 Liveness | Live config, disconnected final network included | TLC completes and passes `Delivery`, `BusProgress`, `NoPingPong` | box |
 | M2.1 Pack format | `salmong-pack`: `parse_pack`, `write_pack`; `Scenario::validate` | Parse then write gives the same bytes; `version` 2, unknown fields, non-canonical bytes are errors; one bad fixture per rule returns that rule's error | box |
