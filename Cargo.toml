@@ -7,6 +7,6 @@ edition = "2024"
 rust-version = "1.97.1"
 
 [profile.release]
-opt-level = 3
+opt-level = "s"
 lto = "fat"
 codegen-units = 1
