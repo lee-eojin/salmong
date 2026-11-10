@@ -134,7 +134,7 @@ impl Sim {
 Bevy: pin `=0.20.1`, `default-features = false`. The default set pulls `3d` and `audio`, which we do not need yet. Features are
 listed one by one, not `2d`, which adds `webgl2` (Q2) and gilrs and wayland, which need `pkg-config` to build natively.
 - **States:** `Loading`, `Menu`, `Playing`, `GameOver`. The last two only follow `view().mode`.
-- **FixedUpdate (30 Hz):** `apply_commands -> step_sim -> dispatch_events`. `apply_commands` drains `PendingCommands`
+- **FixedUpdate (30 Hz, `salmong_game::sim::SimPlugin`, M3.1a):** `feed_replay -> apply_commands -> step_sim -> dispatch_events`. `feed_replay` runs only with a `ReplayFeed` and pushes body commands into `PendingCommands` on their tick, so replayed and live commands share one path. `apply_commands` drains `PendingCommands`
   into `Sim::queue`, so every input belongs to one explicit tick.
 - **Update:** input, drag preview, `sync_views`, `interpolate_buses`, on-change mesh and HUD rebuilds, instance buffers.
   Buses blend previous and current tick snapshots by the fixed overstep fraction. A bus with no previous snapshot snaps.
@@ -304,7 +304,7 @@ overlaps it, so stages are guides, not a sum: the gate is measured frame interva
 - **Batching:** passengers, stations and buses are one instanced draw each (vertex-rate instance buffers, shape chosen in
   the fragment shader), which keeps a later WebGL2 port possible. Route meshes rebuild on edit only. At most 20 draws per frame.
 - **Fixed timestep:** 30 Hz via `Time<Fixed>`, 60 ticks/s at x2. A render frame runs at most 2 ticks; time beyond that is
-  discarded, so the sim slows instead of spiralling. Hidden tab or pause: no ticks, accumulator cleared on return. Inputs
+  discarded (`Time<Virtual>::max_delta` is 2 timesteps, M3.1a), so the sim slows instead of spiralling. Hidden tab or pause: no ticks, accumulator cleared on return. Inputs
   are bound to tick numbers, so all of this changes when ticks run, never what they compute.
 
 Measurement:
@@ -351,6 +351,7 @@ laptop (Q3), `skip` is out of MVP and runs nowhere. M1 needs no new tools and pr
 | M2.8 Trace check | `BoardingTrace.tla` (needs M1.1) | TLC accepts traces from sample seeds; dropped, reordered or altered steps are rejected | box |
 | M2.9 Perf workload | Bench `Balance`, `cargo bench` | Workload reaches 5,000 alive; peak `step` recorded before render work starts | box |
 | M3.1 Render | Draw `SimView` from a replay | At equal tick counts, `state_hash` equals headless at several render rates | gpu |
+| M3.1a Sim driver | `salmong_game::sim`: `SimPlugin`, `step_sim`, `SimEvents`, `SimEventMessage`, `ReplayFeed`; 30 Hz, 2-tick cap. No drawing | `crates/salmong-game/tests/sim_driver.rs`: a headless app at 30, 60, 144 Hz, capped 10 Hz and irregular frames gives per-tick `state_hash` equal to `replay::hash_sequence`; a long frame runs exactly 2 ticks | box |
 | M3.2 Input | Pointer to `Command` | Scripted pointer events give the expected command log | box |
 | M3.3 Web game | Browser build, placeholder art, `BestRes` on the game-over screen | A scripted game ends at the same tick, score and `state_hash` as headless | gpu |
 | M3.4 Edit continuity | Network edits with riders on board | Scripted edits: no bus moves more than one tick's travel per tick, rider counts conserved. Playtest note is advisory | gpu |

@@ -1,6 +1,7 @@
 pub mod best;
 pub mod input;
 pub mod pack;
+pub mod sim;
 
 use bevy::app::PluginGroupBuilder;
 use bevy::prelude::*;
@@ -31,6 +32,7 @@ pub fn plugins() -> PluginGroupBuilder {
         })
         .add(BlankPlugin)
         .add(input::InputPlugin)
+        .add(sim::SimPlugin)
         .add(pack::PackPlugin)
         .add(best::BestPlugin)
 }
