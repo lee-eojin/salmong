@@ -65,4 +65,7 @@ fn shipped_plugins_start_without_a_window_or_gpu() {
         [0xFA, 0x80, 0x72, 0xFF]
     );
     assert!(app.world().contains_resource::<BestRes>());
+    let t = app.world().resource::<Time<Fixed>>().timestep();
+    assert_eq!(t, std::time::Duration::from_nanos(33_333_333));
+    assert_eq!(app.world().resource::<Time<Virtual>>().max_delta(), t * 2);
 }
