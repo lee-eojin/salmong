@@ -1,5 +1,7 @@
 const salmong_game::sim::MAX_TICKS_PER_FRAME
 const salmong_game::sim::TICK_HZ
+enum salmong_game::clock::ClockCommand
+enum salmong_game::clock::Speed
 field salmong_game::best::BestRes::0
 field salmong_game::input::CommandLog::0
 field salmong_game::input::PendingCommands::0
@@ -14,9 +16,13 @@ fn salmong_game::input::apply_commands(sim, pending, log)
 fn salmong_game::input::pointer_event(ev, fit)
 fn salmong_game::plugins()
 fn salmong_game::sim::step_sim(sim, events)
+impl Clone for salmong_game::clock::Clock
+impl Clone for salmong_game::clock::ClockCommand
+impl Clone for salmong_game::clock::Speed
 impl Clone for salmong_game::sim::SimEventMessage
 impl Component for salmong_game::best::BestRes
 impl Component for salmong_game::best::BestStore
+impl Component for salmong_game::clock::Clock
 impl Component for salmong_game::input::CommandLog
 impl Component for salmong_game::input::PendingCommands
 impl Component for salmong_game::input::PointerRes
@@ -24,23 +30,40 @@ impl Component for salmong_game::input::SimRes
 impl Component for salmong_game::pack::ScenarioPack
 impl Component for salmong_game::sim::ReplayFeed
 impl Component for salmong_game::sim::SimEvents
+impl Copy for salmong_game::clock::Clock
+impl Copy for salmong_game::clock::ClockCommand
+impl Copy for salmong_game::clock::Speed
+impl Debug for salmong_game::clock::Clock
+impl Debug for salmong_game::clock::ClockCommand
+impl Debug for salmong_game::clock::Speed
 impl Debug for salmong_game::sim::SimEventMessage
 impl Default for salmong_game::best::BestRes
 impl Default for salmong_game::best::BestStore
+impl Default for salmong_game::clock::Clock
+impl Default for salmong_game::clock::Speed
 impl Default for salmong_game::input::CommandLog
 impl Default for salmong_game::input::PendingCommands
 impl Default for salmong_game::input::PointerRes
 impl Default for salmong_game::sim::SimEvents
+impl Eq for salmong_game::clock::Clock
+impl Eq for salmong_game::clock::ClockCommand
+impl Eq for salmong_game::clock::Speed
 impl Eq for salmong_game::sim::SimEventMessage
+impl Message for salmong_game::clock::ClockCommand
 impl Message for salmong_game::sim::SimEventMessage
+impl PartialEq for salmong_game::clock::Clock
+impl PartialEq for salmong_game::clock::ClockCommand
+impl PartialEq for salmong_game::clock::Speed
 impl PartialEq for salmong_game::sim::SimEventMessage
 impl Plugin for salmong_game::BlankPlugin
 impl Plugin for salmong_game::best::BestPlugin
+impl Plugin for salmong_game::clock::ClockPlugin
 impl Plugin for salmong_game::input::InputPlugin
 impl Plugin for salmong_game::pack::PackPlugin
 impl Plugin for salmong_game::sim::SimPlugin
 impl Resource for salmong_game::best::BestRes
 impl Resource for salmong_game::best::BestStore
+impl Resource for salmong_game::clock::Clock
 impl Resource for salmong_game::input::CommandLog
 impl Resource for salmong_game::input::PendingCommands
 impl Resource for salmong_game::input::PointerRes
@@ -48,14 +71,23 @@ impl Resource for salmong_game::input::SimRes
 impl Resource for salmong_game::pack::ScenarioPack
 impl Resource for salmong_game::sim::ReplayFeed
 impl Resource for salmong_game::sim::SimEvents
+impl StructuralPartialEq for salmong_game::clock::Clock
+impl StructuralPartialEq for salmong_game::clock::ClockCommand
+impl StructuralPartialEq for salmong_game::clock::Speed
 impl StructuralPartialEq for salmong_game::sim::SimEventMessage
 method salmong_game::best::BestStore::at(path)
 method salmong_game::best::BestStore::load(self)
 method salmong_game::best::BestStore::save(self, text)
+method salmong_game::clock::Clock::halted(self)
+method salmong_game::clock::Clock::hidden(self)
+method salmong_game::clock::Clock::paused(self)
+method salmong_game::clock::Clock::speed(self)
+method salmong_game::clock::Speed::ratio(self)
 method salmong_game::sim::ReplayFeed::new(body)
 method salmong_game::sim::ReplayFeed::remaining(self)
 mod salmong_game
 mod salmong_game::best
+mod salmong_game::clock
 mod salmong_game::input
 mod salmong_game::pack
 mod salmong_game::sim
@@ -63,6 +95,8 @@ struct salmong_game::BlankPlugin
 struct salmong_game::best::BestPlugin
 struct salmong_game::best::BestRes
 struct salmong_game::best::BestStore
+struct salmong_game::clock::Clock
+struct salmong_game::clock::ClockPlugin
 struct salmong_game::input::CommandLog
 struct salmong_game::input::InputPlugin
 struct salmong_game::input::PendingCommands
@@ -74,3 +108,8 @@ struct salmong_game::sim::ReplayFeed
 struct salmong_game::sim::SimEventMessage
 struct salmong_game::sim::SimEvents
 struct salmong_game::sim::SimPlugin
+variant salmong_game::clock::ClockCommand::Pause
+variant salmong_game::clock::ClockCommand::Resume
+variant salmong_game::clock::ClockCommand::SetSpeed
+variant salmong_game::clock::Speed::X1
+variant salmong_game::clock::Speed::X2

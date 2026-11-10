@@ -6,6 +6,7 @@ use bevy::render::RenderPlugin;
 use bevy::render::settings::WgpuSettings;
 use bevy::winit::WinitPlugin;
 use salmong_game::best::BestRes;
+use salmong_game::clock::Clock;
 use salmong_game::{BlankPlugin, plugins};
 
 fn blank_app() -> App {
@@ -68,4 +69,5 @@ fn shipped_plugins_start_without_a_window_or_gpu() {
     let t = app.world().resource::<Time<Fixed>>().timestep();
     assert_eq!(t, std::time::Duration::from_nanos(33_333_333));
     assert_eq!(app.world().resource::<Time<Virtual>>().max_delta(), t * 2);
+    assert_eq!(*app.world().resource::<Clock>(), Clock::default());
 }
