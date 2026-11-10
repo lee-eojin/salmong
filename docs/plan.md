@@ -308,7 +308,7 @@ overlaps it, so stages are guides, not a sum: the gate is measured frame interva
   are bound to tick numbers, so all of this changes when ticks run, never what they compute.
   `salmong_game::clock` (M5.2a) owns this: `ClockCommand` (`Pause`, `Resume`, `SetSpeed`) and the window's `WindowOccluded` and
   `AppLifecycle` messages pause `Time<Virtual>` or set its relative speed; the frame that returns from a halt runs 0 ticks and clears
-  the overstep. x2 keeps the 2-tick cap, so it reaches 60 ticks/s only at 30 fps or more. No key is bound yet.
+  the overstep. x2 keeps the 2-tick cap, so it reaches 60 ticks/s only at 30 fps or more. No key is bound yet; Q9 to Q12 (section 9) fix the keys, the pause sign and resume-on-return.
 
 Measurement:
 - **Protocol.** Stable Chrome, 1920x1080 at device-pixel ratio 1, mains power, no other tabs, on the laptop recorded at M0.3.
@@ -356,8 +356,8 @@ laptop (Q3), `skip` is out of MVP and runs nowhere. M1 needs no new tools and pr
 | M3.1 Render | Draw `SimView` from a replay | At equal tick counts, `state_hash` equals headless at several render rates | gpu |
 | M3.1a Sim driver | `salmong_game::sim`: `SimPlugin`, `step_sim`, `SimEvents`, `SimEventMessage`, `ReplayFeed`; 30 Hz, 2-tick cap. No drawing | `crates/salmong-game/tests/sim_driver.rs`: a headless app at 30, 60, 144 Hz, capped 10 Hz and irregular frames gives per-tick `state_hash` equal to `replay::hash_sequence`; a long frame runs exactly 2 ticks | box |
 | M3.2 Input | Pointer to `Command` | Scripted pointer events give the expected command log | box |
-| M3.3 Web game | Browser build, placeholder art, `BestRes` on the game-over screen | A scripted game ends at the same tick, score and `state_hash` as headless | gpu |
-| M3.4 Edit continuity | Network edits with riders on board | Scripted edits: no bus moves more than one tick's travel per tick, rider counts conserved. Playtest note is advisory | gpu |
+| M3.3 Web game | Browser build, placeholder art, `BestRes` on the game-over screen | A scripted game ends at the same tick, score and `state_hash` as headless. Boot, keys and pause sign follow Q8 to Q12 (section 9); its browser build re-checks Q9 to Q11 | gpu |
+| M3.4 Edit continuity | Network edits with riders on board | Scripted edits: no bus moves more than one tick's travel per tick, rider counts conserved. Playtest note is advisory, and covers Q10 (routes edited while paused) | gpu |
 | M3.4a Bus interpolation | `salmong_game::bus`: `bus_pos`, `blend`, `BusTrack` (previous and current tick positions), `track_buses`, `BusPlugin`. No drawing | `crates/salmong-game/tests/bus_interp.rs`: edits that remove all stops, reverse a route or remove it, swept over 90 edit ticks: no bus moves more than one tick's travel per tick, segments finish, blends lie between snapshots, new buses snap, riders + queued + delivered equals spawned every tick | box |
 | M4.1 Bend install | Review `install.sh`, pin 2.0.39 | `bend version` is 2.0.39; a hello program prints its line | box |
 | M4.2 First scenario | Port `h32`; `bend/scenarios.bend` | M2.3 vectors pass on the JS lane; `bend/scenarios.bend 1 1` equals the Rust output byte for byte | box |
@@ -365,7 +365,7 @@ laptop (Q3), `skip` is out of MVP and runs nowhere. M1 needs no new tools and pr
 | M4.5 Native lane | Skipped: out of MVP, nothing installed | Reopen when the Native lane is required or pack count makes the JS lane too slow; Option A is then clang 19. Reopened check: bytes equal the JS lane at 1 and 8 threads, count 1,024; times recorded, not gated | skip |
 | M4.6a Pack loader | `salmong_game::pack`: `PackPlugin`, `include_bytes!`, `parse_pack`, `ScenarioPack` | `scripts/check-pack-load.sh`: with Bend absent the shipped plugins load the regenerated pack, and bad packs and broken wirings are refused. `scripts/check-webgpu-startup.mjs`: the shipped wasm logs the load in Chrome. Size change recorded in `docs/m5.3-size.md` | box |
 | M4.6 Bend go/no-go | Decided 2026-11-06 by 레스: GO. Bend keeps offline scenario generation (section 5) | With Bend absent, `salmong-oracle pack` regenerates the pack and the game loads it. `scripts/check-fallback.sh` proves the regeneration and `scripts/check-pack-load.sh` proves the load; both stay as the fallback gates | box |
-| M5.2 Frame gate | Instancing; `?bench=stress&seed=1` | At most 20 draw calls; section 6 protocol passes; stall, hidden tab, pause and x2 transitions keep the replay's `state_hash` | gpu |
+| M5.2 Frame gate | Instancing; `?bench=stress&seed=1` | At most 20 draw calls; section 6 protocol passes; stall, hidden tab, pause and x2 transitions keep the replay's `state_hash`; re-check Q11 (resume on return) with a real tab switch | gpu |
 | M5.2a Clock transitions | `salmong_game::clock`: `ClockPlugin`, `Clock`, `ClockCommand`, `Speed`; pause, x2, hidden tab, suspend | `crates/salmong-game/tests/clock.rs`: a replay driven through stall, pause, hidden, suspend and x2 transitions gives per-tick `state_hash` equal to `replay::hash_sequence`; halted frames run 0 ticks; the return frame clears the overstep | box |
 | M5.3 Size | LTO, `opt-level`, `wasm-opt`, cost of `serde_json` | Download size, as `scripts/measure-size.sh` measures it (`docs/m5.3-size.md`), meets the provisional target: brotli total 6,000,000 bytes (`total.brotli`, precompressed brotli host). The script does not fail the target. Not complete: completion waits for the GPU build | box |
 | M6.1a Best record | `score`: `FinalScore`, canonical text, `merge`; `Sim::final_score` | Score outranks survival and ties break by ticks; non-canonical text reads as no record; `merge` keeps the better run; `final_score` is `None` until `SimMode::Over`; `state_hash` and `RULES_VERSION` unchanged | box |
@@ -374,7 +374,7 @@ laptop (Q3), `skip` is out of MVP and runs nowhere. M1 needs no new tools and pr
 
 ## 9. Open questions
 
-Q1 to Q7 are **DECIDED; LEJ may change them.**
+Q1 to Q12 are **DECIDED; LEJ may change them.**
 - **Q1. Is "routing in Bend" a hard product claim? DECIDED: no.** Bend does offline scenario generation only, and that
   is enough. Rust does all routing. The Bend router oracle is dropped; `ReferenceRouter` keeps a second implementation.
 - **Q2. WebGL2 fallback? DECIDED: none in MVP.** Browsers without WebGPU, or with no adapter, get the error screen.
@@ -384,6 +384,24 @@ Q1 to Q7 are **DECIDED; LEJ may change them.**
 - **Q6. Tick rate? DECIDED: 30 Hz with interpolation.**
 - **Q7. First release scope? DECIDED: local-device best score only.** No weekly rewards and no daily or seeded challenges.
   With rewards gone, `Capacity` stays one constant in spec and core, and finding 18's M6.1 clause no longer applies.
+- **Q8. M3.3 boot? DECIDED (레스, 2026-11-10): scenario 0 with its pack seed, no Menu screen.** `SimRes` starts on scenario 0
+  and its own seed; ticks start on the first pointer press; a restart after game over replays scenario 0. The wait for the
+  first press uses the empty `Menu` state, not `Clock` pause. Rejected: a random scenario per run and a scenario picker, because
+  the best score is one per device and mixing scenarios empties its meaning. Revisit: a Menu (title, Play, best, then scenario 0
+  or a random one) if playing scenario 0 gets boring, together with a per-scenario best.
+- **Q9. Pause and x2 controls? DECIDED (레스, 2026-11-10): keys only.** `Space` toggles pause, `1` sends `SetSpeed(X1)`, `2`
+  sends `SetSpeed(X2)`. x2 is a toggle by key, never hold, and is allowed at any fps. Escape keeps cancelling a drag and Tab
+  stays the browser's. On-screen buttons wait for the HUD unit. Open check in the M3.3 browser build: whether `Space` scrolls
+  the page, and whether touch devices are in scope (then a pause button is required).
+- **Q10. Editing while paused, and blur? DECIDED (레스, 2026-11-10): keep current behaviour.** Route edits made while paused
+  are allowed and bind to the first tick after resume. Losing focus while visible does not pause. Revisit in the M3.3 browser
+  build: if a route drawn while paused is invisible until resume and looks broken, either draw pending edits or block input
+  while paused.
+- **Q11. Hidden tab return? DECIDED (레스, 2026-11-10): resume at once (current `ClockPlugin`).** Revisit in the M3.3 browser
+  build and the M5.2 gpu half: if players lose right after returning, pause on hide via `ClockCommand::Pause`, not a new flag.
+- **Q12. Pause shown or recorded? DECIDED (레스, 2026-11-10): shown, not recorded.** A small placeholder shape (two bars for
+  pause, two triangles for x2) reading `Clock`; no full-screen overlay. Pause, hidden and x2 are not in the replay header or
+  the score rules. Revisit only if online rankings or shared challenges arrive.
 
 ## 10. Review findings
 
