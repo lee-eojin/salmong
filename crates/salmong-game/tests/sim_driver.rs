@@ -66,7 +66,7 @@ fn stops(s: &[u16]) -> Vec<StationId> {
 fn body() -> Vec<(Tick, Command)> {
     vec![
         (
-            Tick(5),
+            Tick(0),
             Command::AddRoute {
                 stops: stops(&[0, 1]),
             },
