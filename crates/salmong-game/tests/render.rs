@@ -21,9 +21,10 @@ use salmong_game::pack::{PackPlugin, ScenarioPack};
 use salmong_game::render::{
     BADGE_COLOUR, BADGE_HALF, BUS_COLOUR, BUS_HALF, BusDraw, BusInst, Geometry, Layer,
     PASSENGER_COLOUR, PASSENGER_HALF, PassengerInst, QUEUE_CAP, RIDER_COLOUR, RIDER_HALF,
-    ROUTE_HALF, RenderPlugin, RouteDraw, RouteInst, STATION_HALF, Scene, StationInst, bus_geometry,
-    buses, camera_fit, passenger_geometry, route_colour, route_geometry, routes, scene, slot_pos,
-    station_colour, station_geometry, to_world,
+    ROUTE_HALF, RenderPlugin, RouteDraw, RouteInst, STATION_HALF, Scene, ShapeMaterial,
+    StationInst, bus_geometry, buses, camera_fit, hit, passenger_geometry, route_colour,
+    route_geometry, routes, scene, shape_code, shape_distance, slot_pos, station_colour,
+    station_geometry, to_world,
 };
 use salmong_game::sim::{SimPlugin, step_sim};
 use salmong_pack::parse_pack;
@@ -804,4 +805,168 @@ fn no_sim_res_draws_nothing() {
     let state = layer_state(&mut app);
     assert_eq!(state.len(), 4);
     assert!(state.iter().all(|(_, _, v)| *v == Visibility::Hidden));
+}
+
+fn polar(n: usize, k: usize, radius: f32) -> Vec2 {
+    let a = std::f32::consts::FRAC_PI_2 + std::f32::consts::TAU * k as f32 / n as f32;
+    Vec2::new(a.cos(), a.sin()) * radius
+}
+
+fn inside_polygon(p: Vec2, poly: &[Vec2]) -> bool {
+    let mut inside = false;
+    for i in 0..poly.len() {
+        let a = poly[i];
+        let b = poly[(i + 1) % poly.len()];
+        if (a.y > p.y) != (b.y > p.y) && p.x < a.x + (p.y - a.y) * (b.x - a.x) / (b.y - a.y) {
+            inside = !inside;
+        }
+    }
+    inside
+}
+
+fn m31_inside(shape: Shape, p: Vec2) -> bool {
+    match shape {
+        Shape::Circle => p.length() <= 1.0,
+        Shape::Triangle => {
+            let pts: Vec<Vec2> = (0..3).map(|k| polar(3, k, 1.0)).collect();
+            inside_polygon(p, &pts)
+        }
+        Shape::Square => p.x.abs() <= 1.0 && p.y.abs() <= 1.0,
+        Shape::Star => {
+            let pts: Vec<Vec2> = (0..10)
+                .map(|k| polar(10, k, if k % 2 == 0 { 1.0 } else { 0.45 }))
+                .collect();
+            inside_polygon(p, &pts)
+        }
+    }
+}
+
+#[test]
+fn shape_distance_matches_m31_polygons() {
+    let shapes = [Shape::Circle, Shape::Triangle, Shape::Square, Shape::Star];
+    assert_eq!(shapes.map(shape_code), [0, 1, 2, 3]);
+    for shape in shapes {
+        let mut checked = 0;
+        let mut inside = 0;
+        for i in 0..41 {
+            for j in 0..41 {
+                let p = Vec2::new(-1.0 + i as f32 / 20.0, -1.0 + j as f32 / 20.0);
+                let d = shape_distance(shape_code(shape), p);
+                if d.abs() < 0.02 {
+                    continue;
+                }
+                checked += 1;
+                let want = m31_inside(shape, p);
+                inside += usize::from(want);
+                assert_eq!(d < 0.0, want, "{shape:?} at {p}: d={d}");
+            }
+        }
+        assert!(checked > 1500, "{shape:?} checked {checked}");
+        assert!(inside > 100, "{shape:?} inside {inside}");
+    }
+}
+
+#[test]
+fn hit_reads_shape_and_colour() {
+    let shapes = [Shape::Circle, Shape::Triangle, Shape::Square, Shape::Star];
+    let sc = Scene {
+        stations: shapes
+            .iter()
+            .enumerate()
+            .map(|(i, &shape)| StationInst {
+                id: StationId(i as u16),
+                pos: Vec2::new(4.0 * i as f32, 3.0),
+                shape,
+                overflow: 0,
+            })
+            .collect(),
+        ..default()
+    };
+    let g = station_geometry(&sc);
+    assert_eq!(g.uvs.len(), g.positions.len());
+    let white = Some(lin(station_colour(0)));
+    let star_notch = polar(10, 1, 0.55);
+    let star_tip = polar(10, 0, 0.9);
+    for (i, &shape) in shapes.iter().enumerate() {
+        let c = to_world(Vec2::new(4.0 * i as f32, 3.0));
+        let at = |l: Vec2| hit(&g, c + l * STATION_HALF);
+        assert_eq!(at(Vec2::ZERO), white, "{shape:?} centre");
+        assert_eq!(at(Vec2::new(0.0, 0.85)), white, "{shape:?} top");
+        let corner = at(Vec2::new(0.85, 0.85));
+        let base = at(Vec2::new(0.0, -0.75));
+        let side = at(Vec2::new(0.9, 0.0));
+        let notch = at(star_notch);
+        let tip = at(star_tip);
+        match shape {
+            Shape::Circle => {
+                assert_eq!(corner, None);
+                assert_eq!(base, white);
+                assert_eq!(side, white);
+                assert_eq!(notch, white);
+            }
+            Shape::Triangle => {
+                assert_eq!(corner, None);
+                assert_eq!(base, None);
+                assert_eq!(side, None);
+            }
+            Shape::Square => {
+                assert_eq!(corner, white);
+                assert_eq!(base, white);
+                assert_eq!(side, white);
+            }
+            Shape::Star => {
+                assert_eq!(corner, None);
+                assert_eq!(notch, None);
+                assert_eq!(tip, white);
+            }
+        }
+        assert_eq!(hit(&g, c + Vec2::splat(1.2 * STATION_HALF)), None);
+    }
+    let bus = bus_geometry(&BusDraw {
+        buses: vec![BusInst {
+            id: BusId(0),
+            pos: Vec2::new(5.0, 5.0),
+            riders: 0,
+        }],
+    });
+    let bc = to_world(Vec2::new(5.0, 5.0));
+    assert_eq!(hit(&bus, bc + BUS_HALF * 0.95), Some(lin(BUS_COLOUR)));
+    assert_eq!(hit(&bus, bc + BUS_HALF * 1.05), None);
+}
+
+#[test]
+fn layers_share_one_shape_material() {
+    let mut app = demo_app();
+    while tick_of(&app) < 700 {
+        frame(&mut app, step() / 2);
+    }
+    let state = layer_state(&mut app);
+    assert!(
+        state.iter().all(|(_, _, v)| *v == Visibility::Inherited),
+        "{state:?}"
+    );
+    let mesh_count = app.world_mut().query::<&Mesh2d>().iter(app.world()).count();
+    assert_eq!(mesh_count, 4);
+    let layers: Vec<(Layer, Handle<Mesh>, Handle<ShapeMaterial>)> = app
+        .world_mut()
+        .query::<(&Layer, &Mesh2d, &MeshMaterial2d<ShapeMaterial>)>()
+        .iter(app.world())
+        .map(|(l, m, mat)| (*l, m.0.clone(), mat.0.clone()))
+        .collect();
+    assert_eq!(layers.len(), 4);
+    let kinds: BTreeSet<String> = layers.iter().map(|(l, _, _)| format!("{l:?}")).collect();
+    assert_eq!(kinds.len(), 4);
+    let first = layers[0].2.id();
+    assert!(layers.iter().all(|(_, _, mat)| mat.id() == first));
+    assert_eq!(app.world().resource::<Assets<ShapeMaterial>>().len(), 1);
+    assert!(app.world().entities().len() < 200);
+    let meshes = app.world().resource::<Assets<Mesh>>();
+    for (layer, handle, _) in &layers {
+        let mesh = meshes.get(handle).expect("visible layer has a mesh");
+        let len = |a| mesh.attribute(a).map(|v| v.len());
+        let n = len(Mesh::ATTRIBUTE_POSITION);
+        assert!(n.is_some_and(|n| n > 0), "{layer:?}");
+        assert_eq!(len(Mesh::ATTRIBUTE_UV_0), n, "{layer:?}");
+        assert_eq!(len(Mesh::ATTRIBUTE_COLOR), n, "{layer:?}");
+    }
 }
