@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use salmong_core::score::{FinalScore, merge};
 
 use crate::input::SimRes;
+use crate::sim::ReplayFeed;
 
 pub use device::BestStore;
 
@@ -15,7 +16,12 @@ impl Plugin for BestPlugin {
         app.init_resource::<BestStore>()
             .init_resource::<BestRes>()
             .add_systems(Startup, load_best)
-            .add_systems(Update, record_best.run_if(resource_exists::<SimRes>));
+            .add_systems(
+                Update,
+                record_best
+                    .run_if(resource_exists::<SimRes>)
+                    .run_if(not(resource_exists::<ReplayFeed>)),
+            );
     }
 }
 

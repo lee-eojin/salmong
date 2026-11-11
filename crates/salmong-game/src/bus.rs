@@ -1,5 +1,5 @@
 use crate::input::SimRes;
-use crate::sim::step_sim;
+use crate::sim::{Ticks, step_sim};
 use bevy::prelude::*;
 use salmong_core::balance::Balance;
 use salmong_core::ids::{BusId, StationId, Tick};
@@ -109,7 +109,8 @@ impl Plugin for BusPlugin {
             FixedUpdate,
             track_buses
                 .after(step_sim)
-                .run_if(resource_exists::<SimRes>),
+                .run_if(resource_exists::<SimRes>)
+                .in_set(Ticks),
         );
     }
 }

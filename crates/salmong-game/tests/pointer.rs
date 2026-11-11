@@ -12,6 +12,7 @@ use salmong_core::ids::{StationId, Tick};
 use salmong_core::scenario::{RampPoint, Scenario, Shape, StationSpec};
 use salmong_core::sim::{Command, Sim};
 use salmong_game::input::{CommandLog, InputPlugin, PendingCommands, SimRes};
+use salmong_game::sim::ReplayFeed;
 
 const PX: [(f32, f32); 3] = [(420.0, 189.0), (906.0, 594.0), (1392.0, 324.0)];
 
@@ -221,4 +222,12 @@ fn no_sim_means_no_systems_run() {
     app.world_mut().run_schedule(Update);
     app.world_mut().run_schedule(FixedUpdate);
     assert!(app.world().resource::<CommandLog>().0.is_empty());
+}
+
+#[test]
+fn replay_feed_stops_the_pointer() {
+    let (mut app, w) = app();
+    app.insert_resource(ReplayFeed::new(Vec::new()));
+    assert!(frame(&mut app, drag_with(w, None)).is_empty());
+    assert!(app.world().resource::<PendingCommands>().0.is_empty());
 }

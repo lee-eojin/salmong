@@ -1,3 +1,4 @@
+use crate::sim::{ReplayFeed, Ticks};
 use bevy::input::ButtonState;
 use bevy::input::keyboard::KeyboardInput;
 use bevy::input::mouse::{MouseButton, MouseButtonInput};
@@ -30,10 +31,17 @@ impl Plugin for InputPlugin {
         app.init_resource::<PointerRes>()
             .init_resource::<PendingCommands>()
             .init_resource::<CommandLog>()
-            .add_systems(Update, read_pointer.run_if(resource_exists::<SimRes>))
+            .add_systems(
+                Update,
+                read_pointer
+                    .run_if(resource_exists::<SimRes>)
+                    .run_if(not(resource_exists::<ReplayFeed>)),
+            )
             .add_systems(
                 FixedUpdate,
-                apply_commands.run_if(resource_exists::<SimRes>),
+                apply_commands
+                    .run_if(resource_exists::<SimRes>)
+                    .in_set(Ticks),
             );
     }
 }
@@ -65,7 +73,7 @@ pub fn pointer_event(ev: &WindowEvent, fit: Option<Fit>) -> Option<PointerEvent>
     }
 }
 
-fn read_pointer(
+pub(crate) fn read_pointer(
     mut events: MessageReader<WindowEvent>,
     window: Query<&Window, With<PrimaryWindow>>,
     sim: Res<SimRes>,
