@@ -495,7 +495,11 @@ fn finds_comments_in_every_syntax() {
         (Syntax::Tla, "(* a (* b *) c *)\n(* d *)\n", &[1, 2]),
         (Syntax::Bend, "# a\ndef b() -> U32:\n  1 # c\n", &[1, 3]),
         (Syntax::GitIgnore, "# a\n/b\n", &[1]),
-        (Syntax::Wesl, "let a = 1.0; // b\n/* c /* d */ e */\n", &[1, 2]),
+        (
+            Syntax::Wesl,
+            "let a = 1.0; // b\n/* c /* d */ e */\n",
+            &[1, 2],
+        ),
     ];
     for (syntax, source, expected) in cases {
         assert_eq!(

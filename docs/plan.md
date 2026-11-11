@@ -104,7 +104,7 @@ pub struct Passenger { pub id: PassengerId, pub want: Shape, pub born: Tick }
 pub enum BusMode { Active { route: RouteId, dir: Dir }, Retiring }
 pub enum BusPhase { Moving { from: StationId, to: StationId, progress: u32 }, Alighting, Boarding }
 pub enum Command { AddRoute { stops: Vec<StationId> }, EditRoute { route: RouteId, stops: Vec<StationId> },
-                   RemoveRoute { route: RouteId }, AssignBus { route: RouteId } }
+                   RemoveRoute { route: RouteId }, AssignBus { route: RouteId } }  // AssignBus is not built: no command adds buses, so 32 in service is unmeasured
 pub enum SimEvent { StationSpawned, Boarded, Alighted, Delivered, OverflowStarted, CommandRejected, GameOver }
 pub trait Router { fn solve(&self, net: &NetworkSnapshot) -> RouteTable; }
 pub struct DijkstraRouter;                                 // runtime, reverse Dijkstra per shape
@@ -306,10 +306,10 @@ overlaps it, so stages are guides, not a sum: the gate is measured frame interva
 
 - **Population bound.** One overflow climb lets a station spawn `ceil(1350 * 5 * 100 / 30000) = 23`, so stations and full buses hold
   about `64 * (9 + 23) + 32 * 6 = 2,240`. Transfers can dodge timers, so the hard bound is the 5,000 spawn pause, and the bench targets it.
-- **Entities:** 64 stations, 8 routes, 32 buses, under 200 with UI. A station draws at most 16 queued passengers *(tune)*
+- **Entities:** 64 stations, 8 routes, 32 buses, under 200 with UI. 32 buses in service is not measured until a bus-adding command exists; the M5.2 gate measures 8. A station draws at most 16 queued passengers *(tune)*
   plus a `+n` badge, so passenger instances stay under 1,300 at any population. Boarding picks are O(shapes) (section 2).
 - **Batching:** passengers, stations and buses are one instanced draw each (vertex-rate instance buffers, shape chosen in
-  the fragment shader), which keeps a later WebGL2 port possible. Route meshes rebuild on edit only. At most 20 draws per frame. M3.1 draws one CPU-built mesh per kind (routes, stations, passengers, buses: 4 draws); M5.2 swaps its tessellator for quads and a fragment-shader material without changing the draw resources.
+  the fragment shader), which keeps a later WebGL2 port possible. Route meshes rebuild on edit only. At most 20 draws per frame. M3.1 draws one CPU-built mesh per kind (routes, stations, passengers, buses: 4 draws); M5.2 swaps its tessellator for quads and a fragment-shader material without changing the draw resources. M5.2 does this as quad batching (4 vertices per instance in one mesh per kind, `instanceCount` 1), not step-mode instancing.
 - **Fixed timestep:** 30 Hz via `Time<Fixed>`, 60 ticks/s at x2. A render frame runs at most 2 ticks; time beyond that is
   discarded (`Time<Virtual>::max_delta` is 2 timesteps, M3.1a), so the sim slows instead of spiralling. Hidden tab or pause: no ticks, accumulator cleared on return. Inputs
   are bound to tick numbers, so all of this changes when ticks run, never what they compute.
@@ -320,7 +320,7 @@ overlaps it, so stages are guides, not a sum: the gate is measured frame interva
 Measurement:
 - **Protocol.** Stable Chrome, 1920x1080 at device-pixel ratio 1, mains power, no other tabs, on the laptop recorded at M0.3.
 - `?bench=stress&seed=1` replays a fixed command log with a bench `Balance` that reaches 5,000 alive with large ineligible queues:
-  30 s warm-up, then 120 s of steady load, repeated edits, x2 speed and 32 buses in service together. Three runs; the worst gates.
+  30 s warm-up, then 120 s of steady load, repeated edits, x2 speed and 8 buses in service together. 8 is the current rules maximum (`MAX_ROUTES` = 8, one bus per `AddRoute`); first-release play maximum is 4. Three runs; the worst gates.
   JSON has device, browser, adapter, `requestAnimationFrame` interval p50, p95, p99 and frames over 20 ms. Pass: p95 <= 16.7 ms, p99 <= 20 ms.
   Deep dives use the in-game overlay and Chrome traces; native `cargo bench` on `step` and `solve` tracks core regressions.
 
@@ -372,7 +372,7 @@ laptop (Q3), `skip` is out of MVP and runs nowhere. M1 needs no new tools and pr
 | M4.5 Native lane | Skipped: out of MVP, nothing installed | Reopen when the Native lane is required or pack count makes the JS lane too slow; Option A is then clang 19. Reopened check: bytes equal the JS lane at 1 and 8 threads, count 1,024; times recorded, not gated | skip |
 | M4.6a Pack loader | `salmong_game::pack`: `PackPlugin`, `include_bytes!`, `parse_pack`, `ScenarioPack` | `scripts/check-pack-load.sh`: with Bend absent the shipped plugins load the regenerated pack, and bad packs and broken wirings are refused. `scripts/check-webgpu-startup.mjs`: the shipped wasm logs the load in Chrome. Size change recorded in `docs/m5.3-size.md` | box |
 | M4.6 Bend go/no-go | Decided 2026-11-06 by 레스: GO. Bend keeps offline scenario generation (section 5) | With Bend absent, `salmong-oracle pack` regenerates the pack and the game loads it. `scripts/check-fallback.sh` proves the regeneration and `scripts/check-pack-load.sh` proves the load; both stay as the fallback gates | box |
-| M5.2 Frame gate | Instancing; `?bench=stress&seed=1` | At most 20 draw calls; section 6 protocol passes; stall, hidden tab, pause and x2 transitions keep the replay's `state_hash`; re-check Q11 (resume on return) with a real tab switch | gpu |
+| M5.2 Frame gate | Instancing; `?bench=stress&seed=1` | At most 20 draw calls; section 6 protocol passes with 8 buses in service (32 unmeasured); stall, hidden tab, pause and x2 transitions keep the replay's `state_hash`; re-check Q11 (resume on return) with a real tab switch | gpu |
 | M5.2a Clock transitions | `salmong_game::clock`: `ClockPlugin`, `Clock`, `ClockCommand`, `Speed`; pause, x2, hidden tab, suspend | `crates/salmong-game/tests/clock.rs`: a replay driven through stall, pause, hidden, suspend and x2 transitions gives per-tick `state_hash` equal to `replay::hash_sequence`; halted frames run 0 ticks; the return frame clears the overstep | box |
 | M5.3 Size | LTO, `opt-level`, `wasm-opt`, cost of `serde_json` | Download size, as `scripts/measure-size.sh` measures it (`docs/m5.3-size.md`), meets the provisional target: brotli total 6,000,000 bytes (`total.brotli`, precompressed brotli host). The script does not fail the target. Not complete: completion waits for the GPU build | box |
 | M5.3a Size settings | Release profile `opt-level = 3`, fat LTO, one codegen unit; `wasm-opt -O3` (binaryen version_131) | `docs/m5.3-size.md` M5.3a variants: adopted C1 measures 3,596,216 brotli bytes; `opt-level = "s"` is measured only and reopens after the M5.2 laptop gate | box |

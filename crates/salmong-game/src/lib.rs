@@ -7,6 +7,7 @@ pub mod input;
 pub mod pack;
 pub mod render;
 pub mod sim;
+pub mod stress;
 
 use bevy::app::PluginGroupBuilder;
 use bevy::prelude::*;
@@ -43,6 +44,7 @@ pub fn plugins() -> PluginGroupBuilder {
         .add(render::RenderPlugin)
         .add(demo::DemoPlugin)
         .add(edits::EditsPlugin)
+        .add(stress::StressPlugin)
         .add(pack::PackPlugin)
         .add(best::BestPlugin)
 }
