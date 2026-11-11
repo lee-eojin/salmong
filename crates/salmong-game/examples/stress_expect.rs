@@ -14,6 +14,7 @@ use std::process::ExitCode;
 
 const CLEAR: [u8; 3] = [250, 128, 114];
 const SEED: u64 = 1;
+const MARGIN: f32 = 0.06;
 
 type Candidate = (&'static str, Option<Shape>, Vec2, usize, [u8; 3]);
 
@@ -31,6 +32,17 @@ fn top(layers: &[(usize, &Geometry)], world: Vec2) -> Option<(usize, [u8; 3])> {
         }
     }
     out
+}
+
+fn settled(layers: &[(usize, &Geometry)], grid: Vec2) -> Option<Option<(usize, [u8; 3])>> {
+    let centre = top(layers, to_world(grid));
+    let steady = (-1..=1).all(|dx| {
+        (-1..=1).all(|dy| {
+            let d = Vec2::new(dx as f32, dy as f32) * MARGIN;
+            top(layers, to_world(grid + d)) == centre
+        })
+    });
+    steady.then_some(centre)
 }
 
 fn shape_name(s: Shape) -> &'static str {
@@ -130,10 +142,10 @@ fn main() -> ExitCode {
     }
     let mut seen = BTreeSet::new();
     for (kind, shape, grid, layer, colour) in candidates {
-        let got = top(&layers, to_world(grid));
-        let ok = match got {
-            None => layer == usize::MAX,
-            Some((l, c)) => l == layer && c == colour,
+        let ok = match settled(&layers, grid) {
+            None => false,
+            Some(None) => layer == usize::MAX,
+            Some(Some((l, c))) => l == layer && c == colour,
         };
         if ok {
             seen.insert((kind, shape.map(shape_name)));
