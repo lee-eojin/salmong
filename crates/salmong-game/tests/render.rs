@@ -84,7 +84,6 @@ fn base_app() -> App {
         .add_message::<WindowEvent>()
         .add_plugins(AssetPlugin::default())
         .init_asset::<Mesh>()
-        .init_asset::<ColorMaterial>()
         .add_plugins((InputPlugin, SimPlugin, BusPlugin, ClockPlugin, RenderPlugin))
         .init_resource::<Hashes>()
         .add_systems(
@@ -513,7 +512,7 @@ fn assert_within(
 #[test]
 fn geometry_hand_values() {
     let shapes = [Shape::Circle, Shape::Triangle, Shape::Square, Shape::Star];
-    let counts = [(17usize, 48usize), (3, 3), (4, 6), (11, 30)];
+    let counts = [(4usize, 6usize), (4, 6), (4, 6), (4, 6)];
     let sc = Scene {
         tick: Some(Tick(1)),
         stations: shapes

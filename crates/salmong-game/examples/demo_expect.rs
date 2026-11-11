@@ -5,7 +5,7 @@ use salmong_game::bus::{BusTrack, bus_pos};
 use salmong_game::demo::{CHECK_EVERY, END_TICK, body, done_line};
 use salmong_game::render::{
     BUS_COLOUR, BUS_HALF, BusDraw, Geometry, PASSENGER_COLOUR, RouteDraw, STATION_HALF,
-    bus_geometry, buses, passenger_geometry, route_colour, route_geometry, routes, scene,
+    bus_geometry, buses, hit, passenger_geometry, route_colour, route_geometry, routes, scene,
     station_colour, station_geometry, to_world,
 };
 use salmong_pack::parse_pack;
@@ -19,30 +19,15 @@ fn rgb(c: Srgba) -> [u8; 3] {
     [a[0], a[1], a[2]]
 }
 
-fn inside(p: Vec2, a: Vec2, b: Vec2, c: Vec2) -> bool {
-    let d = |p: Vec2, q: Vec2, r: Vec2| (p - r).perp_dot(q - r);
-    let (d1, d2, d3) = (d(p, a, b), d(p, b, c), d(p, c, a));
-    let neg = d1 < 0.0 || d2 < 0.0 || d3 < 0.0;
-    let pos = d1 > 0.0 || d2 > 0.0 || d3 > 0.0;
-    !(neg && pos)
-}
-
 fn top(layers: &[(usize, &Geometry)], world: Vec2) -> Option<(usize, [u8; 3])> {
-    let mut hit = None;
+    let mut out = None;
     for &(layer, g) in layers {
-        for t in g.indices.chunks(3) {
-            let v = |i: u32| {
-                let p = g.positions[i as usize];
-                Vec2::new(p[0], p[1])
-            };
-            if inside(world, v(t[0]), v(t[1]), v(t[2])) {
-                let c = g.colors[t[0] as usize];
-                let s = Srgba::from(LinearRgba::new(c[0], c[1], c[2], c[3]));
-                hit = Some((layer, rgb(s)));
-            }
+        if let Some(c) = hit(g, world) {
+            let s = Srgba::from(LinearRgba::new(c[0], c[1], c[2], c[3]));
+            out = Some((layer, rgb(s)));
         }
     }
-    hit
+    out
 }
 
 fn bus_positions(
