@@ -137,6 +137,12 @@ listed one by one, not `2d`, which adds `webgl2` (Q2) and gilrs and wayland, whi
 - **FixedUpdate (30 Hz, `salmong_game::sim::SimPlugin`, M3.1a):** `feed_replay -> apply_commands -> step_sim -> dispatch_events`, and `track_buses` after `step_sim` (M3.4a). `feed_replay` runs only with a `ReplayFeed` and pushes body commands into `PendingCommands` on their tick, so replayed and live commands share one path. `apply_commands` drains `PendingCommands`
   into `Sim::queue`, so every input belongs to one explicit tick.
 - **Update:** input, drag preview, `sync_views`, `interpolate_buses`, on-change mesh and HUD rebuilds, instance buffers.
+  M3.1 (`salmong_game::render::RenderPlugin`) runs `sync_views -> interpolate_buses -> fit_camera -> upload_routes -> upload_scene ->
+  upload_buses`. Three draw resources, by cadence: `Scene` (stations, capped passengers, `+n` badges, rider counts) when a tick ran,
+  `RouteDraw` when `table_rev` changes, `BusDraw` every frame it differs. Pure functions in `render.rs` fill them, so tests check draw data
+  without a GPU. Four `Layer` entities each hold one dynamic `Mesh` with vertex colours and the stock `ColorMaterial`, so the frame
+  has 4 mesh draws. Draw data is in grid units, y down; `to_world` flips y once, and the camera's `AutoMin` letterbox matches `Fit`.
+  The render only reads sim state. `?replay=demo` (`salmong_game::demo`) plays a fixed scenario 0 replay and logs `state_hash` checkpoints.
   Buses blend previous and current tick snapshots by the fixed overstep fraction. A bus with no previous snapshot snaps.
   Edits cause no jumps, because segments always finish.
 - **Input (`salmong_core::input`, M3.2):** one gesture. Left press on a station, drag across stations, release on the last one
@@ -302,7 +308,7 @@ overlaps it, so stages are guides, not a sum: the gate is measured frame interva
 - **Entities:** 64 stations, 8 routes, 32 buses, under 200 with UI. A station draws at most 16 queued passengers *(tune)*
   plus a `+n` badge, so passenger instances stay under 1,300 at any population. Boarding picks are O(shapes) (section 2).
 - **Batching:** passengers, stations and buses are one instanced draw each (vertex-rate instance buffers, shape chosen in
-  the fragment shader), which keeps a later WebGL2 port possible. Route meshes rebuild on edit only. At most 20 draws per frame.
+  the fragment shader), which keeps a later WebGL2 port possible. Route meshes rebuild on edit only. At most 20 draws per frame. M3.1 draws one CPU-built mesh per kind (routes, stations, passengers, buses: 4 draws); M5.2 swaps its tessellator for quads and a fragment-shader material without changing the draw resources.
 - **Fixed timestep:** 30 Hz via `Time<Fixed>`, 60 ticks/s at x2. A render frame runs at most 2 ticks; time beyond that is
   discarded (`Time<Virtual>::max_delta` is 2 timesteps, M3.1a), so the sim slows instead of spiralling. Hidden tab or pause: no ticks, accumulator cleared on return. Inputs
   are bound to tick numbers, so all of this changes when ticks run, never what they compute.
@@ -353,7 +359,7 @@ laptop (Q3), `skip` is out of MVP and runs nowhere. M1 needs no new tools and pr
 | M2.7 Determinism | wasm build of core, run in Node | Per-tick `state_hash` sequence equals native on fixed seeds; replay with a wrong header is refused | box |
 | M2.8 Trace check | `BoardingTrace.tla` (needs M1.1) | TLC accepts traces from sample seeds; dropped, reordered or altered steps are rejected | box |
 | M2.9 Perf workload | Bench `Balance`, `cargo bench` | Workload reaches 5,000 alive; peak `step` recorded before render work starts | box |
-| M3.1 Render | Draw `SimView` from a replay | At equal tick counts, `state_hash` equals headless at several render rates | gpu |
+| M3.1 Render | Draw `SimView` from a replay | At equal tick counts, `state_hash` equals headless at several render rates. `crates/salmong-game/tests/render.rs` on the box; [m3.1-render-check.md](m3.1-render-check.md) in Chrome on the laptop | gpu |
 | M3.1a Sim driver | `salmong_game::sim`: `SimPlugin`, `step_sim`, `SimEvents`, `SimEventMessage`, `ReplayFeed`; 30 Hz, 2-tick cap. No drawing | `crates/salmong-game/tests/sim_driver.rs`: a headless app at 30, 60, 144 Hz, capped 10 Hz and irregular frames gives per-tick `state_hash` equal to `replay::hash_sequence`; a long frame runs exactly 2 ticks | box |
 | M3.2 Input | Pointer to `Command` | Scripted pointer events give the expected command log | box |
 | M3.3 Web game | Browser build, placeholder art, `BestRes` on the game-over screen | A scripted game ends at the same tick, score and `state_hash` as headless. Boot, keys and pause sign follow Q8 to Q12 (section 9); its browser build re-checks Q9 to Q11 | gpu |
