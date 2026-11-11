@@ -1,6 +1,9 @@
 assoc salmong_game::render::Layer::ALL
 const salmong_game::demo::CHECK_EVERY
 const salmong_game::demo::END_TICK
+const salmong_game::edits::EDIT_FRAME
+const salmong_game::edits::HOLD_FRAMES
+const salmong_game::edits::PAUSE_TICK
 const salmong_game::render::BADGE_COLOUR
 const salmong_game::render::BADGE_HALF
 const salmong_game::render::BUS_COLOUR
@@ -25,6 +28,14 @@ enum salmong_game::render::Layer
 field salmong_game::best::BestRes::0
 field salmong_game::demo::Demo::frames
 field salmong_game::demo::Demo::lines
+field salmong_game::edits::Edits::draw_milli
+field salmong_game::edits::Edits::draw_over
+field salmong_game::edits::Edits::held
+field salmong_game::edits::Edits::lost
+field salmong_game::edits::Edits::tally
+field salmong_game::edits::Tally::rejected
+field salmong_game::edits::Tally::spawned
+field salmong_game::edits::Tally::step_milli
 field salmong_game::input::CommandLog::0
 field salmong_game::input::PendingCommands::0
 field salmong_game::input::PointerRes::0
@@ -68,8 +79,17 @@ fn salmong_game::demo::body()
 fn salmong_game::demo::done_line(tick)
 fn salmong_game::demo::line(tick, hash, frame)
 fn salmong_game::demo::requested()
+fn salmong_game::demo::requested_as(name)
+fn salmong_game::demo::selects(query, name)
 fn salmong_game::demo::selects_demo(query)
 fn salmong_game::demo::start(commands, pack)
+fn salmong_game::edits::body()
+fn salmong_game::edits::bound_line(tick, rev, pending, frame)
+fn salmong_game::edits::expect()
+fn salmong_game::edits::paused_line(tick, rev, pending, frame)
+fn salmong_game::edits::requested()
+fn salmong_game::edits::start(commands, pack)
+fn salmong_game::edits::stats_prefix(view, tally)
 fn salmong_game::input::apply_commands(sim, pending, log)
 fn salmong_game::input::pointer_event(ev, fit)
 fn salmong_game::plugins()
@@ -92,6 +112,7 @@ fn salmong_game::sim::step_sim(sim, events)
 impl Clone for salmong_game::clock::Clock
 impl Clone for salmong_game::clock::ClockCommand
 impl Clone for salmong_game::clock::Speed
+impl Clone for salmong_game::edits::Tally
 impl Clone for salmong_game::render::BadgeInst
 impl Clone for salmong_game::render::BusDraw
 impl Clone for salmong_game::render::BusInst
@@ -108,6 +129,7 @@ impl Component for salmong_game::best::BestStore
 impl Component for salmong_game::bus::BusTrack
 impl Component for salmong_game::clock::Clock
 impl Component for salmong_game::demo::Demo
+impl Component for salmong_game::edits::Edits
 impl Component for salmong_game::input::CommandLog
 impl Component for salmong_game::input::PendingCommands
 impl Component for salmong_game::input::PointerRes
@@ -122,6 +144,7 @@ impl Component for salmong_game::sim::SimEvents
 impl Copy for salmong_game::clock::Clock
 impl Copy for salmong_game::clock::ClockCommand
 impl Copy for salmong_game::clock::Speed
+impl Copy for salmong_game::edits::Tally
 impl Copy for salmong_game::render::BadgeInst
 impl Copy for salmong_game::render::BusInst
 impl Copy for salmong_game::render::Layer
@@ -130,6 +153,7 @@ impl Copy for salmong_game::render::StationInst
 impl Debug for salmong_game::clock::Clock
 impl Debug for salmong_game::clock::ClockCommand
 impl Debug for salmong_game::clock::Speed
+impl Debug for salmong_game::edits::Tally
 impl Debug for salmong_game::render::BadgeInst
 impl Debug for salmong_game::render::BusDraw
 impl Debug for salmong_game::render::BusInst
@@ -147,6 +171,8 @@ impl Default for salmong_game::bus::BusTrack
 impl Default for salmong_game::clock::Clock
 impl Default for salmong_game::clock::Speed
 impl Default for salmong_game::demo::Demo
+impl Default for salmong_game::edits::Edits
+impl Default for salmong_game::edits::Tally
 impl Default for salmong_game::input::CommandLog
 impl Default for salmong_game::input::PendingCommands
 impl Default for salmong_game::input::PointerRes
@@ -158,6 +184,7 @@ impl Default for salmong_game::sim::SimEvents
 impl Eq for salmong_game::clock::Clock
 impl Eq for salmong_game::clock::ClockCommand
 impl Eq for salmong_game::clock::Speed
+impl Eq for salmong_game::edits::Tally
 impl Eq for salmong_game::render::Layer
 impl Eq for salmong_game::sim::SimEventMessage
 impl Message for salmong_game::clock::ClockCommand
@@ -165,6 +192,7 @@ impl Message for salmong_game::sim::SimEventMessage
 impl PartialEq for salmong_game::clock::Clock
 impl PartialEq for salmong_game::clock::ClockCommand
 impl PartialEq for salmong_game::clock::Speed
+impl PartialEq for salmong_game::edits::Tally
 impl PartialEq for salmong_game::render::BadgeInst
 impl PartialEq for salmong_game::render::BusDraw
 impl PartialEq for salmong_game::render::BusInst
@@ -181,6 +209,7 @@ impl Plugin for salmong_game::best::BestPlugin
 impl Plugin for salmong_game::bus::BusPlugin
 impl Plugin for salmong_game::clock::ClockPlugin
 impl Plugin for salmong_game::demo::DemoPlugin
+impl Plugin for salmong_game::edits::EditsPlugin
 impl Plugin for salmong_game::input::InputPlugin
 impl Plugin for salmong_game::pack::PackPlugin
 impl Plugin for salmong_game::render::RenderPlugin
@@ -190,6 +219,7 @@ impl Resource for salmong_game::best::BestStore
 impl Resource for salmong_game::bus::BusTrack
 impl Resource for salmong_game::clock::Clock
 impl Resource for salmong_game::demo::Demo
+impl Resource for salmong_game::edits::Edits
 impl Resource for salmong_game::input::CommandLog
 impl Resource for salmong_game::input::PendingCommands
 impl Resource for salmong_game::input::PointerRes
@@ -203,6 +233,7 @@ impl Resource for salmong_game::sim::SimEvents
 impl StructuralPartialEq for salmong_game::clock::Clock
 impl StructuralPartialEq for salmong_game::clock::ClockCommand
 impl StructuralPartialEq for salmong_game::clock::Speed
+impl StructuralPartialEq for salmong_game::edits::Tally
 impl StructuralPartialEq for salmong_game::render::BadgeInst
 impl StructuralPartialEq for salmong_game::render::BusDraw
 impl StructuralPartialEq for salmong_game::render::BusInst
@@ -228,6 +259,7 @@ method salmong_game::clock::Clock::hidden(self)
 method salmong_game::clock::Clock::paused(self)
 method salmong_game::clock::Clock::speed(self)
 method salmong_game::clock::Speed::ratio(self)
+method salmong_game::edits::Tally::tick(self, events, track)
 method salmong_game::render::Layer::z(self)
 method salmong_game::sim::ReplayFeed::new(body)
 method salmong_game::sim::ReplayFeed::remaining(self)
@@ -236,6 +268,7 @@ mod salmong_game::best
 mod salmong_game::bus
 mod salmong_game::clock
 mod salmong_game::demo
+mod salmong_game::edits
 mod salmong_game::input
 mod salmong_game::pack
 mod salmong_game::render
@@ -250,6 +283,9 @@ struct salmong_game::clock::Clock
 struct salmong_game::clock::ClockPlugin
 struct salmong_game::demo::Demo
 struct salmong_game::demo::DemoPlugin
+struct salmong_game::edits::Edits
+struct salmong_game::edits::EditsPlugin
+struct salmong_game::edits::Tally
 struct salmong_game::input::CommandLog
 struct salmong_game::input::InputPlugin
 struct salmong_game::input::PendingCommands
