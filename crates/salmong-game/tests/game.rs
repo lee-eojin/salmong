@@ -568,13 +568,19 @@ fn game_over_shows_best_then_restart_replays_scenario_zero() {
     frames(&mut g, 2, step());
     assert_eq!(screen(&g), Screen::GameOver);
     frames(&mut g, 20, step());
+    let ticks_before = g.app.world().resource::<Time<Fixed>>().elapsed();
     frame(
         &mut g,
-        step(),
+        Duration::ZERO,
         vec![moved(w, STATION_PX[0]), left(w, ButtonState::Pressed)],
     );
-    frame(&mut g, step(), vec![moved(w, STATION_PX[1])]);
-    frame(&mut g, step(), vec![left(w, ButtonState::Released)]);
+    assert_eq!(
+        g.app.world().resource::<Time<Fixed>>().elapsed(),
+        ticks_before
+    );
+    frame(&mut g, Duration::ZERO, vec![moved(w, STATION_PX[1])]);
+    assert_eq!(screen(&g), Screen::Menu);
+    frame(&mut g, Duration::ZERO, vec![left(w, ButtonState::Released)]);
     frames(&mut g, 2, step());
     assert_eq!(screen(&g), Screen::Menu);
     assert_eq!(tick_of(&g), 0);
@@ -592,6 +598,11 @@ fn game_over_shows_best_then_restart_replays_scenario_zero() {
     frames(&mut g, 60, step() / 2);
     assert_eq!(screen(&g), Screen::Menu);
     assert_eq!(tick_of(&g), 0);
+    let starts = lines(&g)
+        .iter()
+        .filter(|l| *l == "salmong: game start")
+        .count();
+    assert_eq!(starts, 1);
     frame(
         &mut g,
         step() / 2,
