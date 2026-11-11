@@ -57,7 +57,6 @@ fn base_app() -> App {
         .add_message::<WindowEvent>()
         .add_plugins(AssetPlugin::default())
         .init_asset::<Mesh>()
-        .init_asset::<ColorMaterial>()
         .add_plugins((InputPlugin, SimPlugin, BusPlugin, ClockPlugin, RenderPlugin))
         .init_resource::<Hashes>()
         .init_resource::<Spawned>()

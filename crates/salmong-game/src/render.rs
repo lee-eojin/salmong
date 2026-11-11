@@ -1,15 +1,18 @@
 use crate::bus::BusTrack;
 use crate::input::SimRes;
-use bevy::asset::RenderAssetUsages;
+use bevy::asset::{AssetPath, RenderAssetUsages, embedded_asset, embedded_path};
 use bevy::camera::ScalingMode;
 use bevy::camera::visibility::NoFrustumCulling;
 use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
+use bevy::render::render_resource::AsBindGroup;
+use bevy::shader::ShaderRef;
+use bevy::sprite_render::{AlphaMode2d, Material2d, Material2dPlugin};
 use salmong_core::ids::{BusId, RouteId, StationId, Tick};
 use salmong_core::network::NetworkSnapshot;
 use salmong_core::scenario::{Scenario, Shape, StationSpec};
 use salmong_core::sim::SimView;
-use std::f32::consts::{FRAC_PI_2, TAU};
+use std::f32::consts::TAU;
 
 pub const QUEUE_CAP: usize = 16;
 pub const SLOT_COLS: usize = 4;
@@ -202,80 +205,107 @@ pub fn camera_fit(scenario: &Scenario) -> (Vec2, Vec2) {
 pub struct Geometry {
     pub positions: Vec<[f32; 3]>,
     pub colors: Vec<[f32; 4]>,
+    pub uvs: Vec<[f32; 2]>,
     pub indices: Vec<u32>,
 }
 
+pub const SOLID: u32 = 2;
+
+const CORNERS: [Vec2; 4] = [
+    Vec2::new(-1.0, -1.0),
+    Vec2::new(1.0, -1.0),
+    Vec2::new(1.0, 1.0),
+    Vec2::new(-1.0, 1.0),
+];
+
+pub fn shape_code(shape: Shape) -> u32 {
+    match shape {
+        Shape::Circle => 0,
+        Shape::Triangle => 1,
+        Shape::Square => 2,
+        Shape::Star => 3,
+    }
+}
+
+pub fn shape_distance(code: u32, local: Vec2) -> f32 {
+    match code {
+        0 => local.length() - 1.0,
+        1 => (-local.y).max(0.866_025_4 * local.x.abs() + 0.5 * local.y) - 0.5,
+        3 => {
+            let len = local.length();
+            if len < 1e-6 {
+                return -1.0;
+            }
+            let sector = TAU / 5.0;
+            let a = local.x.atan2(local.y);
+            let folded = ((a + sector / 2.0).rem_euclid(sector) - sector / 2.0).abs();
+            let q = Vec2::new(folded.sin(), folded.cos()) * len;
+            let tip = Vec2::new(0.0, 1.0);
+            let inner = Vec2::new((sector / 2.0).sin(), (sector / 2.0).cos()) * 0.45;
+            let edge = inner - tip;
+            let outward = Vec2::new(-edge.y, edge.x).normalize();
+            (q - tip).dot(outward)
+        }
+        _ => -1.0,
+    }
+}
+
+fn barycentric(p: Vec2, a: Vec2, b: Vec2, c: Vec2) -> Option<Vec3> {
+    let area = (b - a).perp_dot(c - a);
+    if area.abs() < 1e-12 {
+        return None;
+    }
+    let wa = (b - p).perp_dot(c - p) / area;
+    let wb = (c - p).perp_dot(a - p) / area;
+    let wc = 1.0 - wa - wb;
+    let eps = -1e-6;
+    (wa >= eps && wb >= eps && wc >= eps).then_some(Vec3::new(wa, wb, wc))
+}
+
+pub fn hit(g: &Geometry, world: Vec2) -> Option<[f32; 4]> {
+    let mut out = None;
+    for t in g.indices.chunks(3) {
+        let i = [t[0] as usize, t[1] as usize, t[2] as usize];
+        let v = |k: usize| Vec2::new(g.positions[k][0], g.positions[k][1]);
+        let Some(w) = barycentric(world, v(i[0]), v(i[1]), v(i[2])) else {
+            continue;
+        };
+        let uv = Vec2::from(g.uvs[i[0]]) * w.x
+            + Vec2::from(g.uvs[i[1]]) * w.y
+            + Vec2::from(g.uvs[i[2]]) * w.z;
+        let code = (uv.x / 4.0).round();
+        let local = Vec2::new(uv.x - 4.0 * code, uv.y);
+        if shape_distance(code as u32, local) <= 0.0 {
+            out = Some(g.colors[i[0]]);
+        }
+    }
+    out
+}
+
 impl Geometry {
-    fn vertex(&mut self, p: Vec2, colour: [f32; 4]) -> u32 {
-        self.positions.push([p.x, p.y, 0.0]);
-        self.colors.push(colour);
-        (self.positions.len() - 1) as u32
-    }
-
-    fn fan(&mut self, centre: Vec2, rim: &[Vec2], colour: Srgba) {
-        let c = LinearRgba::from(colour).to_f32_array();
-        let base = self.vertex(centre, c);
-        for &p in rim {
-            self.vertex(centre + p, c);
-        }
-        let n = rim.len() as u32;
-        for i in 0..n {
-            self.indices
-                .extend([base, base + 1 + i, base + 1 + (i + 1) % n]);
-        }
-    }
-
-    fn convex(&mut self, centre: Vec2, corners: &[Vec2], colour: Srgba) {
+    fn instance(&mut self, corners: [Vec2; 4], code: u32, colour: Srgba) {
         let c = LinearRgba::from(colour).to_f32_array();
         let base = self.positions.len() as u32;
-        for &p in corners {
-            self.vertex(centre + p, c);
+        for (p, l) in corners.iter().zip(CORNERS) {
+            self.positions.push([p.x, p.y, 0.0]);
+            self.colors.push(c);
+            self.uvs.push([l.x + 4.0 * code as f32, l.y]);
         }
-        for i in 1..corners.len() as u32 - 1 {
-            self.indices.extend([base, base + i, base + i + 1]);
-        }
+        self.indices
+            .extend([base, base + 1, base + 2, base, base + 2, base + 3]);
     }
 
-    fn quad(&mut self, centre: Vec2, half: Vec2, colour: Srgba) {
-        self.convex(
-            centre,
-            &[
-                Vec2::new(-half.x, -half.y),
-                Vec2::new(half.x, -half.y),
-                Vec2::new(half.x, half.y),
-                Vec2::new(-half.x, half.y),
-            ],
-            colour,
-        );
+    fn quad(&mut self, centre: Vec2, half: Vec2, code: u32, colour: Srgba) {
+        self.instance(CORNERS.map(|l| centre + l * half), code, colour);
     }
 
     fn shape(&mut self, shape: Shape, centre: Vec2, r: f32, colour: Srgba) {
-        let polar = |n: usize, k: usize, radius: f32| {
-            let a = FRAC_PI_2 + TAU * k as f32 / n as f32;
-            Vec2::new(a.cos(), a.sin()) * radius
-        };
-        match shape {
-            Shape::Circle => {
-                let rim: Vec<Vec2> = (0..16).map(|k| polar(16, k, r)).collect();
-                self.fan(centre, &rim, colour);
-            }
-            Shape::Triangle => {
-                let pts: Vec<Vec2> = (0..3).map(|k| polar(3, k, r)).collect();
-                self.convex(centre, &pts, colour);
-            }
-            Shape::Square => self.quad(centre, Vec2::splat(r), colour),
-            Shape::Star => {
-                let rim: Vec<Vec2> = (0..10)
-                    .map(|k| polar(10, k, if k % 2 == 0 { r } else { r * 0.45 }))
-                    .collect();
-                self.fan(centre, &rim, colour);
-            }
-        }
+        self.quad(centre, Vec2::splat(r), shape_code(shape), colour);
     }
 
     fn segment(&mut self, a: Vec2, b: Vec2, half: f32, colour: Srgba) {
         let n = (b - a).normalize_or_zero().perp() * half;
-        self.convex(Vec2::ZERO, &[a + n, a - n, b - n, b + n], colour);
+        self.instance([a + n, a - n, b - n, b + n], SOLID, colour);
     }
 }
 
@@ -313,7 +343,12 @@ pub fn passenger_geometry(scene: &Scene) -> Geometry {
         g.shape(p.want, to_world(p.pos), PASSENGER_HALF, PASSENGER_COLOUR);
     }
     for b in &scene.badges {
-        g.quad(to_world(b.pos), Vec2::splat(BADGE_HALF), BADGE_COLOUR);
+        g.quad(
+            to_world(b.pos),
+            Vec2::splat(BADGE_HALF),
+            SOLID,
+            BADGE_COLOUR,
+        );
     }
     g
 }
@@ -326,9 +361,14 @@ pub fn bus_geometry(draw: &BusDraw) -> Geometry {
     let mut g = Geometry::default();
     for b in &draw.buses {
         let c = to_world(b.pos);
-        g.quad(c, BUS_HALF, BUS_COLOUR);
+        g.quad(c, BUS_HALF, SOLID, BUS_COLOUR);
         for k in 0..b.riders.min(RIDERS_SHOWN) {
-            g.quad(c + rider_offset(k), Vec2::splat(RIDER_HALF), RIDER_COLOUR);
+            g.quad(
+                c + rider_offset(k),
+                Vec2::splat(RIDER_HALF),
+                SOLID,
+                RIDER_COLOUR,
+            );
         }
     }
     g
@@ -413,12 +453,32 @@ fn fit_camera(
     }
 }
 
+#[derive(Asset, TypePath, AsBindGroup, Clone, Debug)]
+pub struct ShapeMaterial {
+    #[uniform(0)]
+    pub tint: LinearRgba,
+}
+
+impl Material2d for ShapeMaterial {
+    fn fragment_shader() -> ShaderRef {
+        ShaderRef::Path(
+            AssetPath::from_path_buf(embedded_path!("shapes.wesl")).with_source("embedded"),
+        )
+    }
+
+    fn alpha_mode(&self) -> AlphaMode2d {
+        AlphaMode2d::Blend
+    }
+}
+
 fn spawn_layers(
     mut commands: Commands,
     meshes: Res<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
+    mut materials: ResMut<Assets<ShapeMaterial>>,
 ) {
-    let material = materials.add(ColorMaterial::from_color(Color::WHITE));
+    let material = materials.add(ShapeMaterial {
+        tint: LinearRgba::WHITE,
+    });
     for layer in Layer::ALL {
         commands.spawn((
             layer,
@@ -451,6 +511,7 @@ fn upload(
         )
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, geometry.positions.clone())
         .with_inserted_attribute(Mesh::ATTRIBUTE_COLOR, geometry.colors.clone())
+        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, geometry.uvs.clone())
         .with_inserted_indices(Indices::U32(geometry.indices.clone()));
         meshes
             .insert(&mesh.0, m)
@@ -503,7 +564,9 @@ pub struct RenderPlugin;
 
 impl Plugin for RenderPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Scene>()
+        embedded_asset!(app, "shapes.wesl");
+        app.add_plugins(Material2dPlugin::<ShapeMaterial>::default())
+            .init_resource::<Scene>()
             .init_resource::<RouteDraw>()
             .init_resource::<BusDraw>()
             .add_systems(Startup, spawn_layers)

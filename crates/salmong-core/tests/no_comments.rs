@@ -14,6 +14,7 @@ enum Syntax {
     Shell,
     Tla,
     Toml,
+    Wesl,
     Yaml,
 }
 
@@ -43,6 +44,7 @@ const BY_EXTENSION: &[(&str, FileClass)] = &[
     ("tla", FileClass::Scan(Syntax::Tla)),
     ("toml", FileClass::Scan(Syntax::Toml)),
     ("txt", FileClass::Exempt),
+    ("wesl", FileClass::Scan(Syntax::Wesl)),
     ("yml", FileClass::Scan(Syntax::Yaml)),
 ];
 
@@ -117,6 +119,12 @@ const fn grammar(syntax: Syntax) -> Grammar {
         Syntax::Toml => Grammar {
             line: LineMarker::Anywhere("#"),
             quotes: &[("\"\"\"", true), ("'''", false), ("\"", true), ("'", false)],
+            ..plain
+        },
+        Syntax::Wesl => Grammar {
+            line: LineMarker::Anywhere("//"),
+            block: Some(("/*", "*/")),
+            nested: true,
             ..plain
         },
         Syntax::Html | Syntax::JavaScript => plain,
@@ -487,6 +495,11 @@ fn finds_comments_in_every_syntax() {
         (Syntax::Tla, "(* a (* b *) c *)\n(* d *)\n", &[1, 2]),
         (Syntax::Bend, "# a\ndef b() -> U32:\n  1 # c\n", &[1, 3]),
         (Syntax::GitIgnore, "# a\n/b\n", &[1]),
+        (
+            Syntax::Wesl,
+            "let a = 1.0; // b\n/* c /* d */ e */\n",
+            &[1, 2],
+        ),
     ];
     for (syntax, source, expected) in cases {
         assert_eq!(
@@ -533,6 +546,7 @@ fn ignores_comment_markers_that_are_not_comments() {
         (Syntax::Tla, "Next == x' = x + 1 /\\ y' = y \\\\ {z}\n"),
         (Syntax::Bend, "def a() -> String:\n  \"#b\"\n"),
         (Syntax::GitIgnore, "/a#b\n"),
+        (Syntax::Wesl, "@if(A) import b::c;\nlet d = e / f;\n"),
     ];
     for (syntax, source) in cases {
         assert_eq!(
@@ -556,6 +570,10 @@ fn classifies_files() {
         Some(FileClass::Scan(Syntax::Tla))
     );
     assert_eq!(classify("assets/unknown.wgsl"), None);
+    assert_eq!(
+        classify("crates/salmong-game/src/shapes.wesl"),
+        Some(FileClass::Scan(Syntax::Wesl))
+    );
     assert_eq!(classify("Makefile"), None);
     assert_eq!(
         classify(".github/workflows/ci.yml"),
