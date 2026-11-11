@@ -143,6 +143,7 @@ listed one by one, not `2d`, which adds `webgl2` (Q2) and gilrs and wayland, whi
   without a GPU. Four `Layer` entities each hold one dynamic `Mesh` with vertex colours and the stock `ColorMaterial`, so the frame
   has 4 mesh draws. Draw data is in grid units, y down; `to_world` flips y once, and the camera's `AutoMin` letterbox matches `Fit`.
   The render only reads sim state. `?replay=demo` (`salmong_game::demo`) plays a fixed scenario 0 replay and logs `state_hash` checkpoints.
+  `?replay=edits` (`salmong_game::edits`, M3.4) replays reverse, shrink, disjoint and remove edits on scenario 0 with riders on board, issues the shrink while the clock is paused (Q10), and logs drawn-step and rider-conservation lines beside the hashes.
   Buses blend previous and current tick snapshots by the fixed overstep fraction. A bus with no previous snapshot snaps.
   Edits cause no jumps, because segments always finish.
 - **Input (`salmong_core::input`, M3.2):** one gesture. Left press on a station, drag across stations, release on the last one
@@ -363,7 +364,7 @@ laptop (Q3), `skip` is out of MVP and runs nowhere. M1 needs no new tools and pr
 | M3.1a Sim driver | `salmong_game::sim`: `SimPlugin`, `step_sim`, `SimEvents`, `SimEventMessage`, `ReplayFeed`; 30 Hz, 2-tick cap. No drawing | `crates/salmong-game/tests/sim_driver.rs`: a headless app at 30, 60, 144 Hz, capped 10 Hz and irregular frames gives per-tick `state_hash` equal to `replay::hash_sequence`; a long frame runs exactly 2 ticks | box |
 | M3.2 Input | Pointer to `Command` | Scripted pointer events give the expected command log | box |
 | M3.3 Web game | Browser build, placeholder art, `BestRes` on the game-over screen | A scripted game ends at the same tick, score and `state_hash` as headless. Boot, keys and pause sign follow Q8 to Q12 (section 9); its browser build re-checks Q9 to Q11 | gpu |
-| M3.4 Edit continuity | Network edits with riders on board | Scripted edits: no bus moves more than one tick's travel per tick, rider counts conserved. Playtest note is advisory, and covers Q10 (routes edited while paused) | gpu |
+| M3.4 Edit continuity | Network edits with riders on board | Scripted edits: no bus moves more than one tick's travel per tick, rider counts conserved. Playtest note is advisory, and covers Q10 (routes edited while paused). `crates/salmong-game/tests/edits.rs` on the box; [m3.4-edit-check.md](m3.4-edit-check.md) in Chrome on the laptop | gpu |
 | M3.4a Bus interpolation | `salmong_game::bus`: `bus_pos`, `blend`, `BusTrack` (previous and current tick positions), `track_buses`, `BusPlugin`. No drawing | `crates/salmong-game/tests/bus_interp.rs`: edits that remove all stops, reverse a route or remove it, swept over 90 edit ticks: no bus moves more than one tick's travel per tick, segments finish, blends lie between snapshots, new buses snap, riders + queued + delivered equals spawned every tick | box |
 | M4.1 Bend install | Review `install.sh`, pin 2.0.39 | `bend version` is 2.0.39; a hello program prints its line | box |
 | M4.2 First scenario | Port `h32`; `bend/scenarios.bend` | M2.3 vectors pass on the JS lane; `bend/scenarios.bend 1 1` equals the Rust output byte for byte | box |

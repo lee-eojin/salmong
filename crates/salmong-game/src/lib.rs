@@ -2,6 +2,7 @@ pub mod best;
 pub mod bus;
 pub mod clock;
 pub mod demo;
+pub mod edits;
 pub mod input;
 pub mod pack;
 pub mod render;
@@ -41,6 +42,7 @@ pub fn plugins() -> PluginGroupBuilder {
         .add(bus::BusPlugin)
         .add(render::RenderPlugin)
         .add(demo::DemoPlugin)
+        .add(edits::EditsPlugin)
         .add(pack::PackPlugin)
         .add(best::BestPlugin)
 }

@@ -11,24 +11,33 @@ use salmong_core::sim::{Command, Sim};
 pub const CHECK_EVERY: u64 = 150;
 pub const END_TICK: u64 = 900;
 
-pub fn selects_demo(query: &str) -> bool {
+pub fn selects(query: &str, name: &str) -> bool {
+    let want = format!("replay={name}");
     query
         .strip_prefix('?')
         .unwrap_or(query)
         .split('&')
-        .any(|pair| pair == "replay=demo")
+        .any(|pair| pair == want)
+}
+
+pub fn selects_demo(query: &str) -> bool {
+    selects(query, "demo")
 }
 
 #[cfg(target_arch = "wasm32")]
-pub fn requested() -> bool {
+pub fn requested_as(name: &str) -> bool {
     web_sys::window()
         .and_then(|w| w.location().search().ok())
-        .is_some_and(|q| selects_demo(&q))
+        .is_some_and(|q| selects(&q, name))
 }
 
 #[cfg(not(target_arch = "wasm32"))]
+pub fn requested_as(name: &str) -> bool {
+    std::env::var("SALMONG_REPLAY").is_ok_and(|v| v == name)
+}
+
 pub fn requested() -> bool {
-    std::env::var("SALMONG_REPLAY").is_ok_and(|v| v == "demo")
+    requested_as("demo")
 }
 
 fn stops(s: &[u16]) -> Vec<StationId> {
@@ -84,7 +93,7 @@ pub fn start(mut commands: Commands, pack: Res<ScenarioPack>) {
     commands.insert_resource(Demo::default());
 }
 
-fn report(
+pub(crate) fn report(
     sim: Res<SimRes>,
     mut demo: ResMut<Demo>,
     mut fixed: ResMut<Time<Fixed>>,

@@ -73,6 +73,9 @@ pub fn step_sim(mut sim: ResMut<SimRes>, mut events: ResMut<SimEvents>) {
     sim.sim.step(&mut events.0);
 }
 
-fn dispatch_events(mut events: ResMut<SimEvents>, mut out: MessageWriter<SimEventMessage>) {
+pub(crate) fn dispatch_events(
+    mut events: ResMut<SimEvents>,
+    mut out: MessageWriter<SimEventMessage>,
+) {
     out.write_batch(events.0.drain(..).map(SimEventMessage));
 }
