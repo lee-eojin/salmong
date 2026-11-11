@@ -501,6 +501,16 @@ fn assert_edits(app: &mut App) {
         bound.contains("tick=390 ") && bound.contains(" pending=0 "),
         "{bound}"
     );
+    let frame_of = |l: &str| -> u32 {
+        l.rsplit("frame=")
+            .next()
+            .and_then(|f| f.parse().ok())
+            .expect("frame field")
+    };
+    assert!(
+        frame_of(bound) >= frame_of(paused) + HOLD_FRAMES - EDIT_FRAME,
+        "edit not pushed while paused: {paused} / {bound}"
+    );
     assert_eq!(app.world().resource::<Edits>().held, HOLD_FRAMES);
     for _ in 0..20 {
         frame(app, step() * 3);
