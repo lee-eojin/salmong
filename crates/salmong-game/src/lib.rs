@@ -3,6 +3,7 @@ pub mod bus;
 pub mod clock;
 pub mod demo;
 pub mod edits;
+pub mod game;
 pub mod input;
 pub mod pack;
 pub mod render;
@@ -47,4 +48,5 @@ pub fn plugins() -> PluginGroupBuilder {
         .add(stress::StressPlugin)
         .add(pack::PackPlugin)
         .add(best::BestPlugin)
+        .add(game::GamePlugin)
 }

@@ -4,11 +4,22 @@ const salmong_game::demo::END_TICK
 const salmong_game::edits::EDIT_FRAME
 const salmong_game::edits::HOLD_FRAMES
 const salmong_game::edits::PAUSE_TICK
+const salmong_game::game::RESTART_DELAY
 const salmong_game::render::BADGE_COLOUR
 const salmong_game::render::BADGE_HALF
+const salmong_game::render::BAR_HALF
+const salmong_game::render::BEST_COLOUR
+const salmong_game::render::BEST_ICON_HALF
 const salmong_game::render::BUS_COLOUR
 const salmong_game::render::BUS_HALF
+const salmong_game::render::DIGIT_COLOUR
+const salmong_game::render::DIGIT_MAX
+const salmong_game::render::DIGIT_STEP
+const salmong_game::render::GHOST_COLOUR
+const salmong_game::render::GHOST_HALF
 const salmong_game::render::OVERFLOW_COLOUR
+const salmong_game::render::PANEL_COLOUR
+const salmong_game::render::PANEL_HALF
 const salmong_game::render::PASSENGER_COLOUR
 const salmong_game::render::PASSENGER_HALF
 const salmong_game::render::QUEUE_CAP
@@ -17,10 +28,15 @@ const salmong_game::render::RIDER_COLOUR
 const salmong_game::render::RIDER_HALF
 const salmong_game::render::ROUTE_COLOURS
 const salmong_game::render::ROUTE_HALF
+const salmong_game::render::RUN_ICON_HALF
+const salmong_game::render::SEGMENT_LONG
+const salmong_game::render::SEGMENT_SHORT
+const salmong_game::render::SIGN_COLOUR
 const salmong_game::render::SLOT_COLS
 const salmong_game::render::SOLID
 const salmong_game::render::STATION_COLOUR
 const salmong_game::render::STATION_HALF
+const salmong_game::render::TRIANGLE_HALF
 const salmong_game::sim::MAX_TICKS_PER_FRAME
 const salmong_game::sim::TICK_HZ
 const salmong_game::stress::CHECK_EVERY
@@ -33,6 +49,8 @@ const salmong_game::stress::ROUTES
 const salmong_game::stress::WARMUP_TICK
 enum salmong_game::clock::ClockCommand
 enum salmong_game::clock::Speed
+enum salmong_game::game::Boot
+enum salmong_game::game::Screen
 enum salmong_game::render::Layer
 field salmong_game::best::BestRes::0
 field salmong_game::demo::Demo::frames
@@ -45,6 +63,7 @@ field salmong_game::edits::Edits::tally
 field salmong_game::edits::Tally::rejected
 field salmong_game::edits::Tally::spawned
 field salmong_game::edits::Tally::step_milli
+field salmong_game::game::GameLog::lines
 field salmong_game::input::CommandLog::0
 field salmong_game::input::PendingCommands::0
 field salmong_game::input::PointerRes::0
@@ -62,10 +81,17 @@ field salmong_game::render::Geometry::colors
 field salmong_game::render::Geometry::indices
 field salmong_game::render::Geometry::positions
 field salmong_game::render::Geometry::uvs
+field salmong_game::render::HudDraw::fast
+field salmong_game::render::HudDraw::grid
+field salmong_game::render::HudDraw::over
+field salmong_game::render::HudDraw::paused
+field salmong_game::render::OverInst::best
+field salmong_game::render::OverInst::score
 field salmong_game::render::PassengerInst::pos
 field salmong_game::render::PassengerInst::slot
 field salmong_game::render::PassengerInst::station
 field salmong_game::render::PassengerInst::want
+field salmong_game::render::PendingDraw::lines
 field salmong_game::render::RouteDraw::rev
 field salmong_game::render::RouteDraw::routes
 field salmong_game::render::RouteInst::id
@@ -104,27 +130,53 @@ fn salmong_game::edits::paused_line(tick, rev, pending, frame)
 fn salmong_game::edits::requested()
 fn salmong_game::edits::start(commands, pack)
 fn salmong_game::edits::stats_prefix(view, tally)
+fn salmong_game::game::best_suffix(best)
+fn salmong_game::game::body()
+fn salmong_game::game::clock_line(clock, tick)
+fn salmong_game::game::expect(body)
+fn salmong_game::game::hud(screen, clock, run, best, grid)
+fn salmong_game::game::key_command(ev, paused)
+fn salmong_game::game::over_prefix(tick, score, hash)
+fn salmong_game::game::pick(fixture, over)
+fn salmong_game::game::ready_line(id, seed, boot)
+fn salmong_game::game::requested()
+fn salmong_game::game::start_line()
+fn salmong_game::game::tick_line(tick, score, hash)
 fn salmong_game::input::apply_commands(sim, pending, log)
 fn salmong_game::input::pointer_event(ev, fit)
 fn salmong_game::plugins()
+fn salmong_game::render::bar_centres(grid)
+fn salmong_game::render::best_row(grid)
 fn salmong_game::render::bus_geometry(draw)
 fn salmong_game::render::buses(at, riders)
+fn salmong_game::render::buses_layer(bus, hud)
 fn salmong_game::render::camera_fit(scenario)
+fn salmong_game::render::digit_segments(d)
+fn salmong_game::render::digits(value)
+fn salmong_game::render::ghost_geometry(draw)
 fn salmong_game::render::hit(g, world)
-fn salmong_game::render::interpolate_buses(track, scene, fixed, draw)
+fn salmong_game::render::hud_geometry(hud)
+fn salmong_game::render::interpolate_buses(track, scene, fixed, draw, held)
 fn salmong_game::render::passenger_geometry(scene)
+fn salmong_game::render::pending_lines(pending, routes, stations)
 fn salmong_game::render::rider_offset(k)
 fn salmong_game::render::route_colour(route)
 fn salmong_game::render::route_geometry(draw)
 fn salmong_game::render::routes(net, stations)
+fn salmong_game::render::routes_layer(routes, pending)
+fn salmong_game::render::run_row(grid)
 fn salmong_game::render::scene(view, stations)
+fn salmong_game::render::segment_centres(centre)
 fn salmong_game::render::shape_code(shape)
 fn salmong_game::render::shape_distance(code, local)
+fn salmong_game::render::sign_anchor(grid)
 fn salmong_game::render::slot_pos(station, slot)
 fn salmong_game::render::station_colour(overflow)
 fn salmong_game::render::station_geometry(scene)
+fn salmong_game::render::sync_pending(sim, pending, routes_draw, draw)
 fn salmong_game::render::sync_views(sim, scene, routes_draw)
 fn salmong_game::render::to_world(grid)
+fn salmong_game::render::triangle_centres(grid)
 fn salmong_game::sim::step_sim(sim, events)
 fn salmong_game::stress::alive(view)
 fn salmong_game::stress::body()
@@ -145,31 +197,41 @@ impl Clone for salmong_game::clock::Clock
 impl Clone for salmong_game::clock::ClockCommand
 impl Clone for salmong_game::clock::Speed
 impl Clone for salmong_game::edits::Tally
+impl Clone for salmong_game::game::Boot
+impl Clone for salmong_game::game::Screen
 impl Clone for salmong_game::render::BadgeInst
 impl Clone for salmong_game::render::BusDraw
 impl Clone for salmong_game::render::BusInst
 impl Clone for salmong_game::render::Geometry
+impl Clone for salmong_game::render::HudDraw
 impl Clone for salmong_game::render::Layer
+impl Clone for salmong_game::render::OverInst
 impl Clone for salmong_game::render::PassengerInst
+impl Clone for salmong_game::render::PendingDraw
 impl Clone for salmong_game::render::RouteDraw
 impl Clone for salmong_game::render::RouteInst
 impl Clone for salmong_game::render::Scene
 impl Clone for salmong_game::render::ShapeMaterial
 impl Clone for salmong_game::render::StationInst
 impl Clone for salmong_game::sim::SimEventMessage
+impl Clone for salmong_game::sim::Ticks
 impl Component for salmong_game::best::BestRes
 impl Component for salmong_game::best::BestStore
 impl Component for salmong_game::bus::BusTrack
 impl Component for salmong_game::clock::Clock
 impl Component for salmong_game::demo::Demo
 impl Component for salmong_game::edits::Edits
+impl Component for salmong_game::game::Boot
+impl Component for salmong_game::game::GameLog
 impl Component for salmong_game::input::CommandLog
 impl Component for salmong_game::input::PendingCommands
 impl Component for salmong_game::input::PointerRes
 impl Component for salmong_game::input::SimRes
 impl Component for salmong_game::pack::ScenarioPack
 impl Component for salmong_game::render::BusDraw
+impl Component for salmong_game::render::HudDraw
 impl Component for salmong_game::render::Layer
+impl Component for salmong_game::render::PendingDraw
 impl Component for salmong_game::render::RouteDraw
 impl Component for salmong_game::render::Scene
 impl Component for salmong_game::sim::ReplayFeed
@@ -179,27 +241,36 @@ impl Copy for salmong_game::clock::Clock
 impl Copy for salmong_game::clock::ClockCommand
 impl Copy for salmong_game::clock::Speed
 impl Copy for salmong_game::edits::Tally
+impl Copy for salmong_game::game::Boot
+impl Copy for salmong_game::game::Screen
 impl Copy for salmong_game::render::BadgeInst
 impl Copy for salmong_game::render::BusInst
 impl Copy for salmong_game::render::Layer
+impl Copy for salmong_game::render::OverInst
 impl Copy for salmong_game::render::PassengerInst
 impl Copy for salmong_game::render::StationInst
 impl Debug for salmong_game::clock::Clock
 impl Debug for salmong_game::clock::ClockCommand
 impl Debug for salmong_game::clock::Speed
 impl Debug for salmong_game::edits::Tally
+impl Debug for salmong_game::game::Boot
+impl Debug for salmong_game::game::Screen
 impl Debug for salmong_game::render::BadgeInst
 impl Debug for salmong_game::render::BusDraw
 impl Debug for salmong_game::render::BusInst
 impl Debug for salmong_game::render::Geometry
+impl Debug for salmong_game::render::HudDraw
 impl Debug for salmong_game::render::Layer
+impl Debug for salmong_game::render::OverInst
 impl Debug for salmong_game::render::PassengerInst
+impl Debug for salmong_game::render::PendingDraw
 impl Debug for salmong_game::render::RouteDraw
 impl Debug for salmong_game::render::RouteInst
 impl Debug for salmong_game::render::Scene
 impl Debug for salmong_game::render::ShapeMaterial
 impl Debug for salmong_game::render::StationInst
 impl Debug for salmong_game::sim::SimEventMessage
+impl Debug for salmong_game::sim::Ticks
 impl Default for salmong_game::best::BestRes
 impl Default for salmong_game::best::BestStore
 impl Default for salmong_game::bus::BusTrack
@@ -208,11 +279,16 @@ impl Default for salmong_game::clock::Speed
 impl Default for salmong_game::demo::Demo
 impl Default for salmong_game::edits::Edits
 impl Default for salmong_game::edits::Tally
+impl Default for salmong_game::game::Boot
+impl Default for salmong_game::game::GameLog
+impl Default for salmong_game::game::Screen
 impl Default for salmong_game::input::CommandLog
 impl Default for salmong_game::input::PendingCommands
 impl Default for salmong_game::input::PointerRes
 impl Default for salmong_game::render::BusDraw
 impl Default for salmong_game::render::Geometry
+impl Default for salmong_game::render::HudDraw
+impl Default for salmong_game::render::PendingDraw
 impl Default for salmong_game::render::RouteDraw
 impl Default for salmong_game::render::Scene
 impl Default for salmong_game::sim::SimEvents
@@ -221,8 +297,15 @@ impl Eq for salmong_game::clock::Clock
 impl Eq for salmong_game::clock::ClockCommand
 impl Eq for salmong_game::clock::Speed
 impl Eq for salmong_game::edits::Tally
+impl Eq for salmong_game::game::Boot
+impl Eq for salmong_game::game::Screen
 impl Eq for salmong_game::render::Layer
+impl Eq for salmong_game::render::OverInst
 impl Eq for salmong_game::sim::SimEventMessage
+impl Eq for salmong_game::sim::Ticks
+impl FreelyMutableState for salmong_game::game::Screen
+impl Hash for salmong_game::game::Screen
+impl Hash for salmong_game::sim::Ticks
 impl Material2d for salmong_game::render::ShapeMaterial
 impl Message for salmong_game::clock::ClockCommand
 impl Message for salmong_game::sim::SimEventMessage
@@ -230,23 +313,30 @@ impl PartialEq for salmong_game::clock::Clock
 impl PartialEq for salmong_game::clock::ClockCommand
 impl PartialEq for salmong_game::clock::Speed
 impl PartialEq for salmong_game::edits::Tally
+impl PartialEq for salmong_game::game::Boot
+impl PartialEq for salmong_game::game::Screen
 impl PartialEq for salmong_game::render::BadgeInst
 impl PartialEq for salmong_game::render::BusDraw
 impl PartialEq for salmong_game::render::BusInst
 impl PartialEq for salmong_game::render::Geometry
+impl PartialEq for salmong_game::render::HudDraw
 impl PartialEq for salmong_game::render::Layer
+impl PartialEq for salmong_game::render::OverInst
 impl PartialEq for salmong_game::render::PassengerInst
+impl PartialEq for salmong_game::render::PendingDraw
 impl PartialEq for salmong_game::render::RouteDraw
 impl PartialEq for salmong_game::render::RouteInst
 impl PartialEq for salmong_game::render::Scene
 impl PartialEq for salmong_game::render::StationInst
 impl PartialEq for salmong_game::sim::SimEventMessage
+impl PartialEq for salmong_game::sim::Ticks
 impl Plugin for salmong_game::BlankPlugin
 impl Plugin for salmong_game::best::BestPlugin
 impl Plugin for salmong_game::bus::BusPlugin
 impl Plugin for salmong_game::clock::ClockPlugin
 impl Plugin for salmong_game::demo::DemoPlugin
 impl Plugin for salmong_game::edits::EditsPlugin
+impl Plugin for salmong_game::game::GamePlugin
 impl Plugin for salmong_game::input::InputPlugin
 impl Plugin for salmong_game::pack::PackPlugin
 impl Plugin for salmong_game::render::RenderPlugin
@@ -258,32 +348,44 @@ impl Resource for salmong_game::bus::BusTrack
 impl Resource for salmong_game::clock::Clock
 impl Resource for salmong_game::demo::Demo
 impl Resource for salmong_game::edits::Edits
+impl Resource for salmong_game::game::Boot
+impl Resource for salmong_game::game::GameLog
 impl Resource for salmong_game::input::CommandLog
 impl Resource for salmong_game::input::PendingCommands
 impl Resource for salmong_game::input::PointerRes
 impl Resource for salmong_game::input::SimRes
 impl Resource for salmong_game::pack::ScenarioPack
 impl Resource for salmong_game::render::BusDraw
+impl Resource for salmong_game::render::HudDraw
+impl Resource for salmong_game::render::PendingDraw
 impl Resource for salmong_game::render::RouteDraw
 impl Resource for salmong_game::render::Scene
 impl Resource for salmong_game::sim::ReplayFeed
 impl Resource for salmong_game::sim::SimEvents
 impl Resource for salmong_game::stress::Stress
+impl States for salmong_game::game::Screen
 impl StructuralPartialEq for salmong_game::clock::Clock
 impl StructuralPartialEq for salmong_game::clock::ClockCommand
 impl StructuralPartialEq for salmong_game::clock::Speed
 impl StructuralPartialEq for salmong_game::edits::Tally
+impl StructuralPartialEq for salmong_game::game::Boot
+impl StructuralPartialEq for salmong_game::game::Screen
 impl StructuralPartialEq for salmong_game::render::BadgeInst
 impl StructuralPartialEq for salmong_game::render::BusDraw
 impl StructuralPartialEq for salmong_game::render::BusInst
 impl StructuralPartialEq for salmong_game::render::Geometry
+impl StructuralPartialEq for salmong_game::render::HudDraw
 impl StructuralPartialEq for salmong_game::render::Layer
+impl StructuralPartialEq for salmong_game::render::OverInst
 impl StructuralPartialEq for salmong_game::render::PassengerInst
+impl StructuralPartialEq for salmong_game::render::PendingDraw
 impl StructuralPartialEq for salmong_game::render::RouteDraw
 impl StructuralPartialEq for salmong_game::render::RouteInst
 impl StructuralPartialEq for salmong_game::render::Scene
 impl StructuralPartialEq for salmong_game::render::StationInst
 impl StructuralPartialEq for salmong_game::sim::SimEventMessage
+impl StructuralPartialEq for salmong_game::sim::Ticks
+impl SystemSet for salmong_game::sim::Ticks
 impl TypePath for salmong_game::render::ShapeMaterial
 impl VisitAssetDependencies for salmong_game::render::ShapeMaterial
 method salmong_game::best::BestStore::at(path)
@@ -310,6 +412,7 @@ mod salmong_game::bus
 mod salmong_game::clock
 mod salmong_game::demo
 mod salmong_game::edits
+mod salmong_game::game
 mod salmong_game::input
 mod salmong_game::pack
 mod salmong_game::render
@@ -328,6 +431,8 @@ struct salmong_game::demo::DemoPlugin
 struct salmong_game::edits::Edits
 struct salmong_game::edits::EditsPlugin
 struct salmong_game::edits::Tally
+struct salmong_game::game::GameLog
+struct salmong_game::game::GamePlugin
 struct salmong_game::input::CommandLog
 struct salmong_game::input::InputPlugin
 struct salmong_game::input::PendingCommands
@@ -339,7 +444,10 @@ struct salmong_game::render::BadgeInst
 struct salmong_game::render::BusDraw
 struct salmong_game::render::BusInst
 struct salmong_game::render::Geometry
+struct salmong_game::render::HudDraw
+struct salmong_game::render::OverInst
 struct salmong_game::render::PassengerInst
+struct salmong_game::render::PendingDraw
 struct salmong_game::render::RenderPlugin
 struct salmong_game::render::RouteDraw
 struct salmong_game::render::RouteInst
@@ -350,6 +458,7 @@ struct salmong_game::sim::ReplayFeed
 struct salmong_game::sim::SimEventMessage
 struct salmong_game::sim::SimEvents
 struct salmong_game::sim::SimPlugin
+struct salmong_game::sim::Ticks
 struct salmong_game::stress::Stress
 struct salmong_game::stress::StressPlugin
 variant salmong_game::clock::ClockCommand::Pause
@@ -357,6 +466,13 @@ variant salmong_game::clock::ClockCommand::Resume
 variant salmong_game::clock::ClockCommand::SetSpeed
 variant salmong_game::clock::Speed::X1
 variant salmong_game::clock::Speed::X2
+variant salmong_game::game::Boot::Off
+variant salmong_game::game::Boot::Play
+variant salmong_game::game::Boot::Replay
+variant salmong_game::game::Screen::GameOver
+variant salmong_game::game::Screen::Loading
+variant salmong_game::game::Screen::Menu
+variant salmong_game::game::Screen::Playing
 variant salmong_game::render::Layer::Buses
 variant salmong_game::render::Layer::Passengers
 variant salmong_game::render::Layer::Routes

@@ -9,6 +9,9 @@ pub const MAX_TICKS_PER_FRAME: u32 = 2;
 #[derive(Resource, Default)]
 pub struct SimEvents(pub Vec<SimEvent>);
 
+#[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct Ticks;
+
 #[derive(Message, Clone, Debug, PartialEq, Eq)]
 pub struct SimEventMessage(pub SimEvent);
 
@@ -44,9 +47,10 @@ impl Plugin for SimPlugin {
             (
                 feed_replay
                     .run_if(resource_exists::<ReplayFeed>)
-                    .before(apply_commands),
-                step_sim.after(apply_commands),
-                dispatch_events.after(step_sim),
+                    .before(apply_commands)
+                    .in_set(Ticks),
+                step_sim.after(apply_commands).in_set(Ticks),
+                dispatch_events.after(step_sim).in_set(Ticks),
             )
                 .run_if(resource_exists::<SimRes>),
         );

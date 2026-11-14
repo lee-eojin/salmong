@@ -1,5 +1,5 @@
 use crate::bus::BusTrack;
-use crate::input::SimRes;
+use crate::input::{PendingCommands, SimRes, read_pointer};
 use bevy::asset::{AssetPath, RenderAssetUsages, embedded_asset, embedded_path};
 use bevy::camera::ScalingMode;
 use bevy::camera::visibility::NoFrustumCulling;
@@ -11,7 +11,7 @@ use bevy::sprite_render::{AlphaMode2d, Material2d, Material2dPlugin};
 use salmong_core::ids::{BusId, RouteId, StationId, Tick};
 use salmong_core::network::NetworkSnapshot;
 use salmong_core::scenario::{Scenario, Shape, StationSpec};
-use salmong_core::sim::SimView;
+use salmong_core::sim::{Command, SimView};
 use std::f32::consts::TAU;
 
 pub const QUEUE_CAP: usize = 16;
@@ -34,6 +34,21 @@ pub const PASSENGER_COLOUR: Srgba = hex(0x11, 0x11, 0x11);
 pub const BADGE_COLOUR: Srgba = hex(0xD0, 0x00, 0x00);
 pub const BUS_COLOUR: Srgba = hex(0x14, 0x21, 0x3D);
 pub const RIDER_COLOUR: Srgba = hex(0xFF, 0xFF, 0xFF);
+pub const SIGN_COLOUR: Srgba = hex(0x14, 0x21, 0x3D);
+pub const PANEL_COLOUR: Srgba = hex(0x14, 0x21, 0x3D);
+pub const DIGIT_COLOUR: Srgba = hex(0xFF, 0xFF, 0xFF);
+pub const BEST_COLOUR: Srgba = hex(0xFF, 0xD6, 0x0A);
+pub const GHOST_COLOUR: Srgba = hex(0x11, 0x11, 0x11);
+pub const GHOST_HALF: f32 = 0.07;
+pub const BAR_HALF: Vec2 = Vec2::new(0.3, 0.9);
+pub const TRIANGLE_HALF: f32 = 0.8;
+pub const PANEL_HALF: Vec2 = Vec2::new(12.0, 7.0);
+pub const RUN_ICON_HALF: f32 = 1.0;
+pub const BEST_ICON_HALF: f32 = 1.2;
+pub const SEGMENT_LONG: f32 = 0.55;
+pub const SEGMENT_SHORT: f32 = 0.15;
+pub const DIGIT_STEP: f32 = 2.2;
+pub const DIGIT_MAX: u64 = 9_999_999;
 pub const ROUTE_COLOURS: [Srgba; 8] = [
     hex(0x1B, 0x9A, 0xAA),
     hex(0x6A, 0x4C, 0x93),
@@ -111,6 +126,25 @@ pub struct RouteDraw {
 #[derive(Resource, Clone, Debug, Default, PartialEq)]
 pub struct BusDraw {
     pub buses: Vec<BusInst>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct OverInst {
+    pub score: u64,
+    pub best: Option<u64>,
+}
+
+#[derive(Resource, Clone, Debug, Default, PartialEq)]
+pub struct HudDraw {
+    pub grid: Vec2,
+    pub paused: bool,
+    pub fast: bool,
+    pub over: Option<OverInst>,
+}
+
+#[derive(Resource, Clone, Debug, Default, PartialEq)]
+pub struct PendingDraw {
+    pub lines: Vec<Vec<Vec2>>,
 }
 
 fn grid_pos(spec: &StationSpec) -> Vec2 {
@@ -283,6 +317,15 @@ pub fn hit(g: &Geometry, world: Vec2) -> Option<[f32; 4]> {
 }
 
 impl Geometry {
+    fn append(&mut self, other: Geometry) {
+        let base = self.positions.len() as u32;
+        self.positions.extend(other.positions);
+        self.colors.extend(other.colors);
+        self.uvs.extend(other.uvs);
+        self.indices
+            .extend(other.indices.into_iter().map(|i| base + i));
+    }
+
     fn instance(&mut self, corners: [Vec2; 4], code: u32, colour: Srgba) {
         let c = LinearRgba::from(colour).to_f32_array();
         let base = self.positions.len() as u32;
@@ -374,6 +417,166 @@ pub fn bus_geometry(draw: &BusDraw) -> Geometry {
     g
 }
 
+pub fn digit_segments(d: u8) -> [bool; 7] {
+    let lit: &[u8] = match d {
+        0 => b"abcdef",
+        1 => b"bc",
+        2 => b"abdeg",
+        3 => b"abcdg",
+        4 => b"bcfg",
+        5 => b"acdfg",
+        6 => b"acdefg",
+        7 => b"abc",
+        8 => b"abcdefg",
+        9 => b"abcdfg",
+        _ => b"",
+    };
+    let mut out = [false; 7];
+    for &c in lit {
+        out[usize::from(c - b'a')] = true;
+    }
+    out
+}
+
+pub fn segment_centres(centre: Vec2) -> [(Vec2, Vec2); 7] {
+    let h = Vec2::new(SEGMENT_LONG, SEGMENT_SHORT);
+    let v = Vec2::new(SEGMENT_SHORT, SEGMENT_LONG);
+    [
+        (centre + Vec2::new(0.0, -1.4), h),
+        (centre + Vec2::new(0.7, -0.7), v),
+        (centre + Vec2::new(0.7, 0.7), v),
+        (centre + Vec2::new(0.0, 1.4), h),
+        (centre + Vec2::new(-0.7, 0.7), v),
+        (centre + Vec2::new(-0.7, -0.7), v),
+        (centre, h),
+    ]
+}
+
+pub fn digits(value: u64) -> Vec<u8> {
+    value
+        .min(DIGIT_MAX)
+        .to_string()
+        .bytes()
+        .map(|b| b - b'0')
+        .collect()
+}
+
+pub fn sign_anchor(grid: Vec2) -> Vec2 {
+    Vec2::new(grid.x - 3.0, 2.0)
+}
+
+pub fn bar_centres(grid: Vec2) -> [Vec2; 2] {
+    let a = sign_anchor(grid);
+    [a - Vec2::new(0.5, 0.0), a + Vec2::new(0.5, 0.0)]
+}
+
+pub fn triangle_centres(grid: Vec2) -> [Vec2; 2] {
+    let a = sign_anchor(grid);
+    [a - Vec2::new(4.0, 0.0), a - Vec2::new(2.6, 0.0)]
+}
+
+pub fn run_row(grid: Vec2) -> (Vec2, Vec2) {
+    let c = grid / 2.0;
+    (c + Vec2::new(-8.0, -3.0), c + Vec2::new(-4.0, -3.0))
+}
+
+pub fn best_row(grid: Vec2) -> (Vec2, Vec2) {
+    let c = grid / 2.0;
+    (c + Vec2::new(-8.0, 3.0), c + Vec2::new(-4.0, 3.0))
+}
+
+fn number(g: &mut Geometry, first: Vec2, value: u64) {
+    for (k, d) in digits(value).into_iter().enumerate() {
+        let centre = first + Vec2::new(DIGIT_STEP * k as f32, 0.0);
+        for (lit, (c, half)) in digit_segments(d).into_iter().zip(segment_centres(centre)) {
+            if lit {
+                g.quad(to_world(c), half, SOLID, DIGIT_COLOUR);
+            }
+        }
+    }
+}
+
+pub fn hud_geometry(hud: &HudDraw) -> Geometry {
+    let mut g = Geometry::default();
+    if hud.paused {
+        for c in bar_centres(hud.grid) {
+            g.quad(to_world(c), BAR_HALF, SOLID, SIGN_COLOUR);
+        }
+    }
+    if hud.fast {
+        for c in triangle_centres(hud.grid) {
+            let w = to_world(c);
+            g.instance(
+                CORNERS.map(|l| w + TRIANGLE_HALF * Vec2::new(l.y, -l.x)),
+                shape_code(Shape::Triangle),
+                SIGN_COLOUR,
+            );
+        }
+    }
+    if let Some(over) = hud.over {
+        g.quad(to_world(hud.grid / 2.0), PANEL_HALF, SOLID, PANEL_COLOUR);
+        let (icon, first) = run_row(hud.grid);
+        g.shape(Shape::Circle, to_world(icon), RUN_ICON_HALF, DIGIT_COLOUR);
+        number(&mut g, first, over.score);
+        let (icon, first) = best_row(hud.grid);
+        g.shape(Shape::Star, to_world(icon), BEST_ICON_HALF, BEST_COLOUR);
+        if let Some(best) = over.best {
+            number(&mut g, first, best);
+        }
+    }
+    g
+}
+
+pub fn pending_lines(
+    pending: &[Command],
+    routes: &[RouteInst],
+    stations: &[StationSpec],
+) -> Vec<Vec<Vec2>> {
+    let stops_at = |stops: &[StationId]| -> Option<Vec<Vec2>> {
+        stops
+            .iter()
+            .map(|s| stations.get(usize::from(s.0)).map(grid_pos))
+            .collect()
+    };
+    pending
+        .iter()
+        .filter_map(|cmd| match cmd {
+            Command::AddRoute { stops } | Command::EditRoute { stops, .. } => stops_at(stops),
+            Command::RemoveRoute { route } => routes
+                .iter()
+                .find(|r| r.id == *route)
+                .map(|r| r.points.clone()),
+        })
+        .collect()
+}
+
+pub fn ghost_geometry(draw: &PendingDraw) -> Geometry {
+    let mut g = Geometry::default();
+    for line in &draw.lines {
+        for pair in line.windows(2) {
+            g.segment(
+                to_world(pair[0]),
+                to_world(pair[1]),
+                GHOST_HALF,
+                GHOST_COLOUR,
+            );
+        }
+    }
+    g
+}
+
+pub fn buses_layer(bus: &BusDraw, hud: &HudDraw) -> Geometry {
+    let mut g = bus_geometry(bus);
+    g.append(hud_geometry(hud));
+    g
+}
+
+pub fn routes_layer(routes: &RouteDraw, pending: &PendingDraw) -> Geometry {
+    let mut g = route_geometry(routes);
+    g.append(ghost_geometry(pending));
+    g
+}
+
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Layer {
     Routes,
@@ -412,13 +615,32 @@ pub fn sync_views(sim: Res<SimRes>, mut scene: ResMut<Scene>, mut routes_draw: R
     *scene = self::scene(&view, &sim.scenario.stations);
 }
 
+pub fn sync_pending(
+    sim: Res<SimRes>,
+    pending: Res<PendingCommands>,
+    routes_draw: Res<RouteDraw>,
+    mut draw: ResMut<PendingDraw>,
+) {
+    draw.set_if_neq(PendingDraw {
+        lines: pending_lines(&pending.0, &routes_draw.routes, &sim.scenario.stations),
+    });
+}
+
 pub fn interpolate_buses(
     track: Res<BusTrack>,
     scene: Res<Scene>,
     fixed: Res<Time<Fixed>>,
     mut draw: ResMut<BusDraw>,
+    mut held: Local<(u64, f32)>,
 ) {
-    let at = track.at(fixed.overstep_fraction());
+    let raw = fixed.overstep_fraction();
+    let alpha = if held.0 == track.tick().0 {
+        raw.max(held.1)
+    } else {
+        raw
+    };
+    *held = (track.tick().0, alpha);
+    let at = track.at(alpha);
     draw.set_if_neq(BusDraw {
         buses: buses(&at, &scene.riders),
     });
@@ -522,12 +744,13 @@ fn upload(
 
 fn upload_routes(
     draw: Res<RouteDraw>,
+    pending: Res<PendingDraw>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut layers: Query<(&Layer, &Mesh2d, &mut Visibility)>,
 ) {
     upload(
         Layer::Routes,
-        route_geometry(&draw),
+        routes_layer(&draw, &pending),
         &mut meshes,
         &mut layers,
     );
@@ -554,10 +777,16 @@ fn upload_scene(
 
 fn upload_buses(
     draw: Res<BusDraw>,
+    hud: Res<HudDraw>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut layers: Query<(&Layer, &Mesh2d, &mut Visibility)>,
 ) {
-    upload(Layer::Buses, bus_geometry(&draw), &mut meshes, &mut layers);
+    upload(
+        Layer::Buses,
+        buses_layer(&draw, &hud),
+        &mut meshes,
+        &mut layers,
+    );
 }
 
 pub struct RenderPlugin;
@@ -569,16 +798,24 @@ impl Plugin for RenderPlugin {
             .init_resource::<Scene>()
             .init_resource::<RouteDraw>()
             .init_resource::<BusDraw>()
+            .init_resource::<HudDraw>()
+            .init_resource::<PendingDraw>()
             .add_systems(Startup, spawn_layers)
             .add_systems(
                 Update,
                 (
                     sync_views.run_if(resource_exists_and_changed::<SimRes>),
+                    sync_pending
+                        .after(read_pointer)
+                        .run_if(resource_exists::<SimRes>),
                     interpolate_buses,
                     fit_camera.run_if(resource_exists::<SimRes>),
-                    upload_routes.run_if(resource_changed::<RouteDraw>),
+                    upload_routes.run_if(
+                        resource_changed::<RouteDraw>.or_else(resource_changed::<PendingDraw>),
+                    ),
                     upload_scene.run_if(resource_changed::<Scene>),
-                    upload_buses.run_if(resource_changed::<BusDraw>),
+                    upload_buses
+                        .run_if(resource_changed::<BusDraw>.or_else(resource_changed::<HudDraw>)),
                 )
                     .chain(),
             );
