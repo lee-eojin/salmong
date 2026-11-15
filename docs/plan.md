@@ -131,7 +131,7 @@ impl Sim {
   RNG state, timers and `seq` counters.
 
 `salmong-game` ECS. Core owns all rules; ECS holds presentation only (`StationView`, `BusView`, `RouteView`, `SimRes`).
-Bevy: pin `=0.20.1`, `default-features = false`. The default set pulls `3d` and `audio`, which we do not need yet. Features are
+Bevy: pin `=0.20.1`, `default-features = false`. The default set pulls `3d`, which we do not need. `bevy_audio` and `wav` are on for wasm32 only (M6.2, Q14): on Linux `cpal` needs `pkg-config` and the ALSA headers, so the native build is silent. Features are
 listed one by one, not `2d`, which adds `webgl2` (Q2) and gilrs and wayland, which need `pkg-config` to build natively.
 - **States:** `Loading`, `Menu`, `Playing`, `GameOver`. The last two only follow `view().mode`.
   M3.3 (`salmong_game::game`) defines them as the Bevy state `Screen`. The plain page boots scenario 0 into `Menu`; fixture pages stay in `Loading`. `feed_replay`, `apply_commands`, `step_sim`, `dispatch_events` and `track_buses` sit in the `Ticks` system set, which does not run in `Menu`, so the first left press starts the ticks without a `Clock` pause. Keys: `Space` pause and resume, `1` and `2` speed, read by `read_keys`. A `ReplayFeed` blocks pointer, keys, restart and `record_best`, so a replay never writes the device best. `?replay=over` plays `game::body()` to game over. The pause sign, the x2 sign and the game-over panel (run and best as 7-segment digits) are quads appended to the `Buses` layer mesh; the pending-edit ghost is appended to the `Routes` layer mesh, so the draw count does not change. A left press 1 s or more after game over restarts into `Menu`.

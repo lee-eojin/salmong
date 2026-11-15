@@ -5,6 +5,7 @@ use crate::input::{CommandLog, PendingCommands, PointerRes, SimRes, read_pointer
 use crate::pack::ScenarioPack;
 use crate::render::{HudDraw, OverInst, interpolate_buses};
 use crate::sim::{ReplayFeed, SimEvents, Ticks, step_sim};
+use crate::sound::{Muted, read_mute};
 use crate::{demo, edits, stress};
 use bevy::ecs::system::SystemParam;
 use bevy::input::ButtonState;
@@ -183,6 +184,7 @@ pub fn hud(
     run: Option<FinalScore>,
     best: Option<FinalScore>,
     grid: Vec2,
+    muted: bool,
 ) -> HudDraw {
     if screen == Screen::Loading {
         return HudDraw::default();
@@ -191,6 +193,7 @@ pub fn hud(
         grid,
         paused: clock.paused(),
         fast: clock.speed() == Speed::X2,
+        muted,
         over: match (screen, run) {
             (Screen::GameOver, Some(run)) => Some(OverInst {
                 score: run.score,
@@ -201,7 +204,7 @@ pub fn hud(
     }
 }
 
-fn emit(log: &mut GameLog, line: String) {
+pub(crate) fn emit(log: &mut GameLog, line: String) {
     info!("{line}");
     log.lines.push(line);
 }
@@ -369,6 +372,7 @@ fn sync_hud(
     clock: Res<Clock>,
     sim: Option<Res<SimRes>>,
     best: Option<Res<BestRes>>,
+    muted: Option<Res<Muted>>,
     mut draw: ResMut<HudDraw>,
 ) {
     let next = match sim {
@@ -379,6 +383,7 @@ fn sync_hud(
             sim.sim.final_score(),
             best.and_then(|b| b.0),
             Vec2::new(f32::from(sim.scenario.w), f32::from(sim.scenario.h)),
+            muted.is_some_and(|m| m.0),
         ),
     };
     draw.set_if_neq(next);
@@ -414,7 +419,10 @@ impl Plugin for GamePlugin {
                     log_clock
                         .run_if(no_feed)
                         .run_if(not(in_state(Screen::Loading))),
-                    sync_hud.after(record_best).before(interpolate_buses),
+                    sync_hud
+                        .after(record_best)
+                        .after(read_mute)
+                        .before(interpolate_buses),
                 ),
             );
     }

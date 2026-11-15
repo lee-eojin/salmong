@@ -3,6 +3,26 @@
   <head>
     <meta charset="utf-8" />
     <title>salmong</title>
+    <script>
+      (() => {
+        const Real = window.AudioContext;
+        if (!Real) return;
+        const made = [];
+        window.AudioContext = new Proxy(Real, {
+          construct(target, args) {
+            const ctx = new target(...args);
+            made.push(ctx);
+            return ctx;
+          },
+        });
+        const wake = () => made.forEach((ctx) => ctx.state === "suspended" && ctx.resume());
+        ["pointerdown", "mousedown", "keydown", "touchend"].forEach((name) =>
+          window.addEventListener(name, wake, { capture: true }),
+        );
+        window.salmongAudio = () =>
+          made.length === 0 ? "none" : made.every((ctx) => ctx.state === "running") ? "running" : "suspended";
+      })();
+    </script>
     <link data-trunk rel="rust" href="../crates/salmong-game/Cargo.toml" data-bin="salmong-game" data-wasm-opt="3" />
     <style>
       html,

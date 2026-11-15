@@ -120,6 +120,7 @@ fn main() -> ExitCode {
         grid,
         paused: false,
         fast: false,
+        muted: false,
         over: Some(OverInst {
             score: run.score,
             best,
