@@ -7,25 +7,37 @@ const salmong_game::edits::PAUSE_TICK
 const salmong_game::game::RESTART_DELAY
 const salmong_game::render::BADGE_COLOUR
 const salmong_game::render::BADGE_HALF
+const salmong_game::render::BAND
 const salmong_game::render::BAR_HALF
 const salmong_game::render::BEST_COLOUR
 const salmong_game::render::BEST_ICON_HALF
 const salmong_game::render::BUS_COLOUR
 const salmong_game::render::BUS_HALF
+const salmong_game::render::BUS_INSET
 const salmong_game::render::DIGIT_COLOUR
 const salmong_game::render::DIGIT_MAX
 const salmong_game::render::DIGIT_STEP
+const salmong_game::render::DOT_COLOUR
+const salmong_game::render::DOT_GRID
+const salmong_game::render::DOT_R
 const salmong_game::render::GHOST_COLOUR
 const salmong_game::render::GHOST_HALF
+const salmong_game::render::INK
+const salmong_game::render::OUTLINE
 const salmong_game::render::OVERFLOW_COLOUR
 const salmong_game::render::PANEL_COLOUR
 const salmong_game::render::PANEL_HALF
 const salmong_game::render::PASSENGER_COLOUR
 const salmong_game::render::PASSENGER_HALF
 const salmong_game::render::QUEUE_CAP
+const salmong_game::render::RETIRED_COLOUR
 const salmong_game::render::RIDERS_SHOWN
 const salmong_game::render::RIDER_COLOUR
 const salmong_game::render::RIDER_HALF
+const salmong_game::render::RING
+const salmong_game::render::RING_COLOUR
+const salmong_game::render::RING_HALF
+const salmong_game::render::RING_IN
 const salmong_game::render::ROUTE_COLOURS
 const salmong_game::render::ROUTE_HALF
 const salmong_game::render::RUN_ICON_HALF
@@ -77,6 +89,7 @@ field salmong_game::render::BusDraw::buses
 field salmong_game::render::BusInst::id
 field salmong_game::render::BusInst::pos
 field salmong_game::render::BusInst::riders
+field salmong_game::render::BusInst::route
 field salmong_game::render::Geometry::colors
 field salmong_game::render::Geometry::indices
 field salmong_game::render::Geometry::positions
@@ -87,11 +100,13 @@ field salmong_game::render::HudDraw::over
 field salmong_game::render::HudDraw::paused
 field salmong_game::render::OverInst::best
 field salmong_game::render::OverInst::score
+field salmong_game::render::OverflowLimit::0
 field salmong_game::render::PassengerInst::pos
 field salmong_game::render::PassengerInst::slot
 field salmong_game::render::PassengerInst::station
 field salmong_game::render::PassengerInst::want
 field salmong_game::render::PendingDraw::lines
+field salmong_game::render::RouteDraw::grid
 field salmong_game::render::RouteDraw::rev
 field salmong_game::render::RouteDraw::routes
 field salmong_game::render::RouteInst::id
@@ -101,6 +116,8 @@ field salmong_game::render::Scene::passengers
 field salmong_game::render::Scene::riders
 field salmong_game::render::Scene::stations
 field salmong_game::render::Scene::tick
+field salmong_game::render::ShapeMaterial::band
+field salmong_game::render::ShapeMaterial::ink
 field salmong_game::render::ShapeMaterial::tint
 field salmong_game::render::StationInst::id
 field salmong_game::render::StationInst::overflow
@@ -147,6 +164,7 @@ fn salmong_game::input::pointer_event(ev, fit)
 fn salmong_game::plugins()
 fn salmong_game::render::bar_centres(grid)
 fn salmong_game::render::best_row(grid)
+fn salmong_game::render::bus_colour(route)
 fn salmong_game::render::bus_geometry(draw)
 fn salmong_game::render::buses(at, riders)
 fn salmong_game::render::buses_layer(bus, hud)
@@ -154,12 +172,14 @@ fn salmong_game::render::camera_fit(scenario)
 fn salmong_game::render::digit_segments(d)
 fn salmong_game::render::digits(value)
 fn salmong_game::render::ghost_geometry(draw)
+fn salmong_game::render::grid_size(scenario)
 fn salmong_game::render::hit(g, world)
 fn salmong_game::render::hud_geometry(hud)
 fn salmong_game::render::interpolate_buses(track, scene, fixed, draw, held)
 fn salmong_game::render::passenger_geometry(scene)
 fn salmong_game::render::pending_lines(pending, routes, stations)
 fn salmong_game::render::rider_offset(k)
+fn salmong_game::render::ring_fraction(overflow, limit)
 fn salmong_game::render::route_colour(route)
 fn salmong_game::render::route_geometry(draw)
 fn salmong_game::render::routes(net, stations)
@@ -167,12 +187,13 @@ fn salmong_game::render::routes_layer(routes, pending)
 fn salmong_game::render::run_row(grid)
 fn salmong_game::render::scene(view, stations)
 fn salmong_game::render::segment_centres(centre)
+fn salmong_game::render::shade(code, local, colour, world)
 fn salmong_game::render::shape_code(shape)
 fn salmong_game::render::shape_distance(code, local)
 fn salmong_game::render::sign_anchor(grid)
 fn salmong_game::render::slot_pos(station, slot)
 fn salmong_game::render::station_colour(overflow)
-fn salmong_game::render::station_geometry(scene)
+fn salmong_game::render::station_geometry(scene, limit)
 fn salmong_game::render::sync_pending(sim, pending, routes_draw, draw)
 fn salmong_game::render::sync_views(sim, scene, routes_draw)
 fn salmong_game::render::to_world(grid)
@@ -206,6 +227,7 @@ impl Clone for salmong_game::render::Geometry
 impl Clone for salmong_game::render::HudDraw
 impl Clone for salmong_game::render::Layer
 impl Clone for salmong_game::render::OverInst
+impl Clone for salmong_game::render::OverflowLimit
 impl Clone for salmong_game::render::PassengerInst
 impl Clone for salmong_game::render::PendingDraw
 impl Clone for salmong_game::render::RouteDraw
@@ -231,6 +253,7 @@ impl Component for salmong_game::pack::ScenarioPack
 impl Component for salmong_game::render::BusDraw
 impl Component for salmong_game::render::HudDraw
 impl Component for salmong_game::render::Layer
+impl Component for salmong_game::render::OverflowLimit
 impl Component for salmong_game::render::PendingDraw
 impl Component for salmong_game::render::RouteDraw
 impl Component for salmong_game::render::Scene
@@ -247,6 +270,7 @@ impl Copy for salmong_game::render::BadgeInst
 impl Copy for salmong_game::render::BusInst
 impl Copy for salmong_game::render::Layer
 impl Copy for salmong_game::render::OverInst
+impl Copy for salmong_game::render::OverflowLimit
 impl Copy for salmong_game::render::PassengerInst
 impl Copy for salmong_game::render::StationInst
 impl Debug for salmong_game::clock::Clock
@@ -262,6 +286,7 @@ impl Debug for salmong_game::render::Geometry
 impl Debug for salmong_game::render::HudDraw
 impl Debug for salmong_game::render::Layer
 impl Debug for salmong_game::render::OverInst
+impl Debug for salmong_game::render::OverflowLimit
 impl Debug for salmong_game::render::PassengerInst
 impl Debug for salmong_game::render::PendingDraw
 impl Debug for salmong_game::render::RouteDraw
@@ -288,6 +313,7 @@ impl Default for salmong_game::input::PointerRes
 impl Default for salmong_game::render::BusDraw
 impl Default for salmong_game::render::Geometry
 impl Default for salmong_game::render::HudDraw
+impl Default for salmong_game::render::OverflowLimit
 impl Default for salmong_game::render::PendingDraw
 impl Default for salmong_game::render::RouteDraw
 impl Default for salmong_game::render::Scene
@@ -301,6 +327,7 @@ impl Eq for salmong_game::game::Boot
 impl Eq for salmong_game::game::Screen
 impl Eq for salmong_game::render::Layer
 impl Eq for salmong_game::render::OverInst
+impl Eq for salmong_game::render::OverflowLimit
 impl Eq for salmong_game::sim::SimEventMessage
 impl Eq for salmong_game::sim::Ticks
 impl FreelyMutableState for salmong_game::game::Screen
@@ -322,6 +349,7 @@ impl PartialEq for salmong_game::render::Geometry
 impl PartialEq for salmong_game::render::HudDraw
 impl PartialEq for salmong_game::render::Layer
 impl PartialEq for salmong_game::render::OverInst
+impl PartialEq for salmong_game::render::OverflowLimit
 impl PartialEq for salmong_game::render::PassengerInst
 impl PartialEq for salmong_game::render::PendingDraw
 impl PartialEq for salmong_game::render::RouteDraw
@@ -357,6 +385,7 @@ impl Resource for salmong_game::input::SimRes
 impl Resource for salmong_game::pack::ScenarioPack
 impl Resource for salmong_game::render::BusDraw
 impl Resource for salmong_game::render::HudDraw
+impl Resource for salmong_game::render::OverflowLimit
 impl Resource for salmong_game::render::PendingDraw
 impl Resource for salmong_game::render::RouteDraw
 impl Resource for salmong_game::render::Scene
@@ -377,6 +406,7 @@ impl StructuralPartialEq for salmong_game::render::Geometry
 impl StructuralPartialEq for salmong_game::render::HudDraw
 impl StructuralPartialEq for salmong_game::render::Layer
 impl StructuralPartialEq for salmong_game::render::OverInst
+impl StructuralPartialEq for salmong_game::render::OverflowLimit
 impl StructuralPartialEq for salmong_game::render::PassengerInst
 impl StructuralPartialEq for salmong_game::render::PendingDraw
 impl StructuralPartialEq for salmong_game::render::RouteDraw
@@ -446,6 +476,7 @@ struct salmong_game::render::BusInst
 struct salmong_game::render::Geometry
 struct salmong_game::render::HudDraw
 struct salmong_game::render::OverInst
+struct salmong_game::render::OverflowLimit
 struct salmong_game::render::PassengerInst
 struct salmong_game::render::PendingDraw
 struct salmong_game::render::RenderPlugin

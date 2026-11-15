@@ -8,10 +8,11 @@ use bevy::prelude::*;
 use bevy::render::render_resource::AsBindGroup;
 use bevy::shader::ShaderRef;
 use bevy::sprite_render::{AlphaMode2d, Material2d, Material2dPlugin};
+use salmong_core::balance::Balance;
 use salmong_core::ids::{BusId, RouteId, StationId, Tick};
 use salmong_core::network::NetworkSnapshot;
 use salmong_core::scenario::{Scenario, Shape, StationSpec};
-use salmong_core::sim::{Command, SimView};
+use salmong_core::sim::{BusMode, Command, SimView};
 use std::f32::consts::TAU;
 
 pub const QUEUE_CAP: usize = 16;
@@ -20,8 +21,13 @@ pub const STATION_HALF: f32 = 0.8;
 pub const PASSENGER_HALF: f32 = 0.2;
 pub const BADGE_HALF: f32 = 0.2;
 pub const RIDER_HALF: f32 = 0.1;
-pub const ROUTE_HALF: f32 = 0.15;
+pub const ROUTE_HALF: f32 = 0.20;
 pub const BUS_HALF: Vec2 = Vec2::new(0.6, 0.35);
+pub const BUS_INSET: f32 = 0.08;
+pub const RING_HALF: f32 = 1.25;
+pub const RING_IN: f32 = 0.80;
+pub const DOT_R: f32 = 0.07;
+pub const BAND: [f32; 4] = [0.24, 0.20, 0.24, 0.14];
 pub const RIDERS_SHOWN: u32 = 6;
 
 const fn hex(r: u8, g: u8, b: u8) -> Srgba {
@@ -32,7 +38,11 @@ pub const STATION_COLOUR: Srgba = hex(0xFF, 0xFF, 0xFF);
 pub const OVERFLOW_COLOUR: Srgba = hex(0xFF, 0xD6, 0x0A);
 pub const PASSENGER_COLOUR: Srgba = hex(0x11, 0x11, 0x11);
 pub const BADGE_COLOUR: Srgba = hex(0xD0, 0x00, 0x00);
-pub const BUS_COLOUR: Srgba = hex(0x14, 0x21, 0x3D);
+pub const INK: Srgba = hex(0x14, 0x21, 0x3D);
+pub const DOT_COLOUR: Srgba = hex(0xF0, 0x76, 0x6A);
+pub const RING_COLOUR: Srgba = hex(0xD0, 0x00, 0x00);
+pub const RETIRED_COLOUR: Srgba = hex(0x8D, 0x99, 0xAE);
+pub const BUS_COLOUR: Srgba = INK;
 pub const RIDER_COLOUR: Srgba = hex(0xFF, 0xFF, 0xFF);
 pub const SIGN_COLOUR: Srgba = hex(0x14, 0x21, 0x3D);
 pub const PANEL_COLOUR: Srgba = hex(0x14, 0x21, 0x3D);
@@ -72,6 +82,23 @@ pub fn route_colour(route: RouteId) -> Srgba {
     ROUTE_COLOURS[usize::from(route.0) % ROUTE_COLOURS.len()]
 }
 
+pub fn bus_colour(route: Option<RouteId>) -> Srgba {
+    route.map_or(RETIRED_COLOUR, route_colour)
+}
+
+pub fn ring_fraction(overflow: u32, limit: u32) -> f32 {
+    (overflow as f32 / limit as f32).min(1.0)
+}
+
+#[derive(Resource, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct OverflowLimit(pub u32);
+
+impl Default for OverflowLimit {
+    fn default() -> Self {
+        Self(Balance::mvp().overflow_limit)
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct StationInst {
     pub id: StationId,
@@ -100,6 +127,7 @@ pub struct BusInst {
     pub id: BusId,
     pub pos: Vec2,
     pub riders: u32,
+    pub route: Option<RouteId>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -114,12 +142,13 @@ pub struct Scene {
     pub stations: Vec<StationInst>,
     pub passengers: Vec<PassengerInst>,
     pub badges: Vec<BadgeInst>,
-    pub riders: Vec<(BusId, u32)>,
+    pub riders: Vec<(BusId, u32, Option<RouteId>)>,
 }
 
 #[derive(Resource, Clone, Debug, Default, PartialEq)]
 pub struct RouteDraw {
     pub rev: Option<u64>,
+    pub grid: Vec2,
     pub routes: Vec<RouteInst>,
 }
 
@@ -193,7 +222,13 @@ pub fn scene(view: &SimView, stations: &[StationSpec]) -> Scene {
     out.riders = view
         .buses
         .iter()
-        .map(|b| (b.id, b.riders.len() as u32))
+        .map(|b| {
+            let route = match b.mode {
+                BusMode::Active { route, .. } => Some(route),
+                BusMode::Retiring => None,
+            };
+            (b.id, b.riders.len() as u32, route)
+        })
         .collect();
     out
 }
@@ -213,17 +248,25 @@ pub fn routes(net: &NetworkSnapshot, stations: &[StationSpec]) -> Vec<RouteInst>
         .collect()
 }
 
-pub fn buses(at: &[(BusId, Vec2)], riders: &[(BusId, u32)]) -> Vec<BusInst> {
+pub fn buses(at: &[(BusId, Vec2)], riders: &[(BusId, u32, Option<RouteId>)]) -> Vec<BusInst> {
     at.iter()
-        .map(|&(id, pos)| BusInst {
-            id,
-            pos,
-            riders: riders
+        .map(|&(id, pos)| {
+            let (riders, route) = riders
                 .iter()
-                .find(|(rid, _)| *rid == id)
-                .map_or(0, |&(_, n)| n),
+                .find(|(rid, _, _)| *rid == id)
+                .map_or((0, None), |&(_, n, route)| (n, route));
+            BusInst {
+                id,
+                pos,
+                riders,
+                route,
+            }
         })
         .collect()
+}
+
+pub fn grid_size(scenario: &Scenario) -> Vec2 {
+    Vec2::new(f32::from(scenario.w), f32::from(scenario.h))
 }
 
 pub fn to_world(grid: Vec2) -> Vec2 {
@@ -231,7 +274,7 @@ pub fn to_world(grid: Vec2) -> Vec2 {
 }
 
 pub fn camera_fit(scenario: &Scenario) -> (Vec2, Vec2) {
-    let size = Vec2::new(f32::from(scenario.w), f32::from(scenario.h));
+    let size = grid_size(scenario);
     (to_world(size / 2.0), size)
 }
 
@@ -244,6 +287,9 @@ pub struct Geometry {
 }
 
 pub const SOLID: u32 = 2;
+pub const OUTLINE: u32 = 4;
+pub const RING: u32 = 8;
+pub const DOT_GRID: u32 = 9;
 
 const CORNERS: [Vec2; 4] = [
     Vec2::new(-1.0, -1.0),
@@ -284,6 +330,41 @@ pub fn shape_distance(code: u32, local: Vec2) -> f32 {
     }
 }
 
+fn outline_distance(shape: u32, local: Vec2) -> f32 {
+    if shape == SOLID {
+        local.x.abs().max(local.y.abs()) - 1.0
+    } else {
+        shape_distance(shape, local)
+    }
+}
+
+pub fn shade(code: u32, local: Vec2, colour: [f32; 4], world: Vec2) -> Option<[f32; 4]> {
+    match code {
+        4..=7 => {
+            let shape = code % 4;
+            let d = outline_distance(shape, local);
+            if d > 0.0 {
+                None
+            } else if d > -BAND[shape as usize] {
+                Some(LinearRgba::from(INK).to_f32_array())
+            } else {
+                Some(colour)
+            }
+        }
+        RING => {
+            let r = local.length();
+            let turn = local.x.atan2(local.y) / TAU;
+            let lit = turn - turn.floor() < colour[3];
+            (r > RING_IN && r < 1.0 && lit).then_some([colour[0], colour[1], colour[2], 1.0])
+        }
+        DOT_GRID => {
+            let f = ((world + 0.5).fract_gl() - 0.5).abs();
+            (f.length() < DOT_R).then_some(colour)
+        }
+        _ => (shape_distance(code, local) <= 0.0).then_some(colour),
+    }
+}
+
 fn barycentric(p: Vec2, a: Vec2, b: Vec2, c: Vec2) -> Option<Vec3> {
     let area = (b - a).perp_dot(c - a);
     if area.abs() < 1e-12 {
@@ -309,8 +390,8 @@ pub fn hit(g: &Geometry, world: Vec2) -> Option<[f32; 4]> {
             + Vec2::from(g.uvs[i[2]]) * w.z;
         let code = (uv.x / 4.0).round();
         let local = Vec2::new(uv.x - 4.0 * code, uv.y);
-        if shape_distance(code as u32, local) <= 0.0 {
-            out = Some(g.colors[i[0]]);
+        if let Some(c) = shade(code as u32, local, g.colors[i[0]], world) {
+            out = Some(c);
         }
     }
     out
@@ -354,28 +435,40 @@ impl Geometry {
 
 pub fn route_geometry(draw: &RouteDraw) -> Geometry {
     let mut g = Geometry::default();
+    let half = draw.grid / 2.0 - Vec2::splat(0.5);
+    if half.x > 0.0 && half.y > 0.0 {
+        g.quad(to_world(draw.grid / 2.0), half, DOT_GRID, DOT_COLOUR);
+    }
     for r in &draw.routes {
+        let colour = route_colour(r.id);
         for pair in r.points.windows(2) {
-            g.segment(
-                to_world(pair[0]),
-                to_world(pair[1]),
-                ROUTE_HALF,
-                route_colour(r.id),
-            );
+            g.segment(to_world(pair[0]), to_world(pair[1]), ROUTE_HALF, colour);
+        }
+        for p in &r.points {
+            g.shape(Shape::Circle, to_world(*p), ROUTE_HALF, colour);
         }
     }
     g
 }
 
-pub fn station_geometry(scene: &Scene) -> Geometry {
+pub fn station_geometry(scene: &Scene, limit: u32) -> Geometry {
     let mut g = Geometry::default();
     for s in &scene.stations {
-        g.shape(
-            s.shape,
-            to_world(s.pos),
-            STATION_HALF,
+        let c = to_world(s.pos);
+        g.quad(
+            c,
+            Vec2::splat(STATION_HALF),
+            OUTLINE + shape_code(s.shape),
             station_colour(s.overflow),
         );
+        if s.overflow > 0 {
+            g.quad(
+                c,
+                Vec2::splat(RING_HALF),
+                RING,
+                RING_COLOUR.with_alpha(ring_fraction(s.overflow, limit)),
+            );
+        }
     }
     g
 }
@@ -405,13 +498,14 @@ pub fn bus_geometry(draw: &BusDraw) -> Geometry {
     for b in &draw.buses {
         let c = to_world(b.pos);
         g.quad(c, BUS_HALF, SOLID, BUS_COLOUR);
+        g.quad(
+            c,
+            BUS_HALF - Vec2::splat(BUS_INSET),
+            SOLID,
+            bus_colour(b.route),
+        );
         for k in 0..b.riders.min(RIDERS_SHOWN) {
-            g.quad(
-                c + rider_offset(k),
-                Vec2::splat(RIDER_HALF),
-                SOLID,
-                RIDER_COLOUR,
-            );
+            g.shape(Shape::Circle, c + rider_offset(k), RIDER_HALF, RIDER_COLOUR);
         }
     }
     g
@@ -606,9 +700,11 @@ impl Layer {
 pub fn sync_views(sim: Res<SimRes>, mut scene: ResMut<Scene>, mut routes_draw: ResMut<RouteDraw>) {
     let view = sim.sim.view();
     let restarted = scene.tick.is_some_and(|t| view.tick.0 < t.0);
-    if restarted || routes_draw.rev != Some(view.table_rev) {
+    let grid = grid_size(&sim.scenario);
+    if restarted || routes_draw.rev != Some(view.table_rev) || routes_draw.grid != grid {
         *routes_draw = RouteDraw {
             rev: Some(view.table_rev),
+            grid,
             routes: routes(&sim.sim.snapshot(), &sim.scenario.stations),
         };
     }
@@ -679,6 +775,10 @@ fn fit_camera(
 pub struct ShapeMaterial {
     #[uniform(0)]
     pub tint: LinearRgba,
+    #[uniform(0)]
+    pub ink: LinearRgba,
+    #[uniform(0)]
+    pub band: Vec4,
 }
 
 impl Material2d for ShapeMaterial {
@@ -700,6 +800,8 @@ fn spawn_layers(
 ) {
     let material = materials.add(ShapeMaterial {
         tint: LinearRgba::WHITE,
+        ink: INK.into(),
+        band: Vec4::from_array(BAND),
     });
     for layer in Layer::ALL {
         commands.spawn((
@@ -758,12 +860,13 @@ fn upload_routes(
 
 fn upload_scene(
     scene: Res<Scene>,
+    limit: Res<OverflowLimit>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut layers: Query<(&Layer, &Mesh2d, &mut Visibility)>,
 ) {
     upload(
         Layer::Stations,
-        station_geometry(&scene),
+        station_geometry(&scene, limit.0),
         &mut meshes,
         &mut layers,
     );
@@ -800,6 +903,7 @@ impl Plugin for RenderPlugin {
             .init_resource::<BusDraw>()
             .init_resource::<HudDraw>()
             .init_resource::<PendingDraw>()
+            .init_resource::<OverflowLimit>()
             .add_systems(Startup, spawn_layers)
             .add_systems(
                 Update,
@@ -813,7 +917,9 @@ impl Plugin for RenderPlugin {
                     upload_routes.run_if(
                         resource_changed::<RouteDraw>.or_else(resource_changed::<PendingDraw>),
                     ),
-                    upload_scene.run_if(resource_changed::<Scene>),
+                    upload_scene.run_if(
+                        resource_changed::<Scene>.or_else(resource_changed::<OverflowLimit>),
+                    ),
                     upload_buses
                         .run_if(resource_changed::<BusDraw>.or_else(resource_changed::<HudDraw>)),
                 )

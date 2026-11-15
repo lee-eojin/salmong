@@ -3,6 +3,7 @@ use crate::clock::{Clock, ClockCommand, Speed};
 use crate::demo;
 use crate::edits;
 use crate::input::SimRes;
+use crate::render::OverflowLimit;
 use crate::sim::{ReplayFeed, dispatch_events, step_sim};
 use bevy::prelude::*;
 use salmong_core::balance::Balance;
@@ -204,6 +205,7 @@ pub fn start(mut commands: Commands) {
     });
     commands.insert_resource(ReplayFeed::new(body()));
     commands.insert_resource(BusTrack::new(Balance::bench().travel_ticks));
+    commands.insert_resource(OverflowLimit(Balance::bench().overflow_limit));
     commands.insert_resource(Stress::default());
     info!("{}", header_line(seed));
 }

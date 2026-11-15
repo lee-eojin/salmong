@@ -4,8 +4,8 @@ use salmong_core::scenario::Shape;
 use salmong_core::sim::Sim;
 use salmong_game::bus::{BusTrack, bus_pos};
 use salmong_game::render::{
-    BADGE_COLOUR, BUS_COLOUR, BUS_HALF, BusDraw, Geometry, PASSENGER_COLOUR, RouteDraw,
-    bus_geometry, buses, hit, passenger_geometry, route_geometry, routes, scene, station_colour,
+    BADGE_COLOUR, BusDraw, Geometry, INK, PASSENGER_COLOUR, RouteDraw, bus_colour, bus_geometry,
+    buses, grid_size, hit, passenger_geometry, route_geometry, routes, scene, station_colour,
     station_geometry, to_world,
 };
 use salmong_game::stress::{END_TICK, body, expect, scenario};
@@ -15,6 +15,7 @@ use std::process::ExitCode;
 const CLEAR: [u8; 3] = [250, 128, 114];
 const SEED: u64 = 1;
 const MARGIN: f32 = 0.06;
+const BODY: Vec2 = Vec2::new(0.0, 0.15);
 
 type Candidate = (&'static str, Option<Shape>, Vec2, usize, [u8; 3]);
 
@@ -88,6 +89,7 @@ fn main() -> ExitCode {
     let scn = scene(&view, &sc.stations);
     let rd = RouteDraw {
         rev: Some(view.table_rev),
+        grid: grid_size(&sc),
         routes: routes(&sim.snapshot(), &sc.stations),
     };
     let bd = BusDraw {
@@ -95,7 +97,7 @@ fn main() -> ExitCode {
     };
     let (gr, gs, gp, gb) = (
         route_geometry(&rd),
-        station_geometry(&scn),
+        station_geometry(&scn, Balance::bench().overflow_limit),
         passenger_geometry(&scn),
         bus_geometry(&bd),
     );
@@ -103,16 +105,10 @@ fn main() -> ExitCode {
     let mut candidates: Vec<Candidate> = Vec::new();
     for s in &scn.stations {
         let colour = rgb(station_colour(s.overflow));
-        candidates.push((
-            "station",
-            Some(s.shape),
-            s.pos + Vec2::new(0.0, -0.55),
-            1,
-            colour,
-        ));
+        candidates.push(("station", Some(s.shape), s.pos, 1, colour));
         let corner = s.pos + Vec2::new(0.68, -0.68);
         let expected = if s.shape == Shape::Square {
-            Some((1, colour))
+            Some((1, rgb(INK)))
         } else {
             let below = [(0, &gr)];
             top(&below, to_world(corner))
@@ -129,13 +125,7 @@ fn main() -> ExitCode {
         candidates.push(("badge", None, b.pos, 2, rgb(BADGE_COLOUR)));
     }
     for b in &bd.buses {
-        candidates.push((
-            "bus",
-            None,
-            b.pos + Vec2::new(0.0, BUS_HALF.y * 0.6),
-            3,
-            rgb(BUS_COLOUR),
-        ));
+        candidates.push(("bus", None, b.pos + BODY, 3, rgb(bus_colour(b.route))));
     }
     for (x, y) in [(0.5, 0.5), (63.5, 39.5), (63.5, 0.5), (0.5, 39.5)] {
         candidates.push(("clear", None, Vec2::new(x, y), usize::MAX, CLEAR));

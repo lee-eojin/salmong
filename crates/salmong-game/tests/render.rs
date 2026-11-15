@@ -8,25 +8,30 @@ use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 use bevy::window::WindowEvent;
 use salmong_core::balance::Balance;
-use salmong_core::ids::{BusId, PassengerId, RouteId, StationId, Tick};
+use salmong_core::ids::{BusId, Dir, PassengerId, RouteId, StationId, Tick};
 use salmong_core::input::{Fit, MILLI};
 use salmong_core::replay::hash_sequence;
 use salmong_core::scenario::{RampPoint, Scenario, Shape, StationSpec};
-use salmong_core::sim::{BusPhase, Command, Passenger, Sim, SimEvent, SimMode, SimView};
+use salmong_core::sim::{
+    BusMode, BusPhase, BusView, Command, Passenger, Sim, SimEvent, SimMode, SimView,
+};
 use salmong_game::bus::{BusPlugin, BusTrack};
 use salmong_game::clock::{Clock, ClockCommand, ClockPlugin};
 use salmong_game::demo::{self, CHECK_EVERY, Demo, DemoPlugin, END_TICK};
 use salmong_game::input::{InputPlugin, SimRes};
 use salmong_game::pack::{PackPlugin, ScenarioPack};
 use salmong_game::render::{
-    BADGE_COLOUR, BADGE_HALF, BUS_COLOUR, BUS_HALF, BusDraw, BusInst, Geometry, Layer,
-    PASSENGER_COLOUR, PASSENGER_HALF, PassengerInst, QUEUE_CAP, RIDER_COLOUR, RIDER_HALF,
-    ROUTE_HALF, RenderPlugin, RouteDraw, RouteInst, STATION_HALF, Scene, ShapeMaterial,
-    StationInst, bus_geometry, buses, camera_fit, hit, passenger_geometry, route_colour,
-    route_geometry, routes, scene, shape_code, shape_distance, slot_pos, station_colour,
-    station_geometry, to_world,
+    BADGE_COLOUR, BADGE_HALF, BAND, BUS_COLOUR, BUS_HALF, BUS_INSET, BusDraw, BusInst, DOT_COLOUR,
+    DOT_GRID, DOT_R, Geometry, INK, Layer, OUTLINE, OverflowLimit, PASSENGER_COLOUR,
+    PASSENGER_HALF, PassengerInst, QUEUE_CAP, RETIRED_COLOUR, RIDER_COLOUR, RIDER_HALF, RING,
+    RING_COLOUR, RING_HALF, RING_IN, ROUTE_HALF, RenderPlugin, RouteDraw, RouteInst, SOLID,
+    STATION_HALF, Scene, ShapeMaterial, StationInst, bus_colour, bus_geometry, buses, camera_fit,
+    grid_size, hit, passenger_geometry, rider_offset, ring_fraction, route_colour, route_geometry,
+    routes, scene, shade, shape_code, shape_distance, slot_pos, station_colour, station_geometry,
+    to_world,
 };
 use salmong_game::sim::{SimPlugin, step_sim};
+use salmong_game::stress;
 use salmong_pack::parse_pack;
 
 const PACK: &[u8] = include_bytes!("../../../assets/scenarios/pack.v1.json");
@@ -543,7 +548,7 @@ fn geometry_hand_values() {
         }],
         riders: Vec::new(),
     };
-    let g = station_geometry(&sc);
+    let g = station_geometry(&sc, 4);
     let (mut v, mut ix) = (0, 0);
     for (i, s) in sc.stations.iter().enumerate() {
         let (nv, ni) = counts[i];
@@ -556,8 +561,20 @@ fn geometry_hand_values() {
         );
         v += nv;
         ix += ni;
+        if s.overflow > 0 {
+            assert_within(
+                &g,
+                v..v + 4,
+                to_world(s.pos),
+                Vec2::splat(RING_HALF),
+                RING_COLOUR.with_alpha(0.25),
+            );
+            v += 4;
+            ix += 6;
+        }
     }
     assert_eq!((g.positions.len(), g.indices.len()), (v, ix));
+    assert_eq!((v, ix), (24, 36));
     assert_eq!(station_colour(0).to_u8_array(), [255, 255, 255, 255]);
     assert_eq!(station_colour(1).to_u8_array(), [0xFF, 0xD6, 0x0A, 255]);
     let g = passenger_geometry(&sc);
@@ -588,33 +605,43 @@ fn geometry_hand_values() {
                 id: BusId(0),
                 pos: Vec2::new(10.0, 20.0),
                 riders: 8,
+                route: Some(RouteId(1)),
             },
             BusInst {
                 id: BusId(1),
                 pos: Vec2::new(30.0, 5.0),
                 riders: 2,
+                route: None,
             },
         ],
     };
     let g = bus_geometry(&bd);
-    assert_eq!(g.positions.len(), 4 + 6 * 4 + 4 + 2 * 4);
-    assert_eq!(g.indices.len(), 6 * (1 + 6 + 1 + 2));
+    assert_eq!(g.positions.len(), 8 + 6 * 4 + 8 + 2 * 4);
+    assert_eq!(g.indices.len(), 6 * (2 + 6 + 2 + 2));
     assert_within(&g, 0..4, to_world(bd.buses[0].pos), BUS_HALF, BUS_COLOUR);
+    assert_within(
+        &g,
+        4..8,
+        to_world(bd.buses[0].pos),
+        BUS_HALF - Vec2::splat(BUS_INSET),
+        route_colour(RouteId(1)),
+    );
     for k in 0..6 {
         assert_within(
             &g,
-            4 + 4 * k..8 + 4 * k,
+            8 + 4 * k..12 + 4 * k,
             to_world(bd.buses[0].pos),
             BUS_HALF,
             RIDER_COLOUR,
         );
-        let corner = g.positions[4 + 4 * k];
+        let corner = g.positions[8 + 4 * k];
         let c =
             Vec2::new(corner[0], corner[1]) + Vec2::splat(RIDER_HALF) - to_world(bd.buses[0].pos);
         assert!(c.y > 0.0, "rider {k} not above the centre line");
     }
     let rd = RouteDraw {
         rev: Some(1),
+        grid: Vec2::ZERO,
         routes: vec![RouteInst {
             id: RouteId(2),
             points: vec![
@@ -625,7 +652,17 @@ fn geometry_hand_values() {
         }],
     };
     let g = route_geometry(&rd);
-    assert_eq!((g.positions.len(), g.indices.len()), (8, 12));
+    assert_eq!((g.positions.len(), g.indices.len()), (20, 30));
+    assert_eq!(ROUTE_HALF, 0.20);
+    for (k, p) in rd.routes[0].points.iter().enumerate() {
+        assert_within(
+            &g,
+            8 + 4 * k..12 + 4 * k,
+            to_world(*p),
+            Vec2::splat(ROUTE_HALF),
+            route_colour(RouteId(2)),
+        );
+    }
     assert_within(
         &g,
         0..4,
@@ -670,10 +707,12 @@ fn layer_meshes_follow_draw_data() {
         assert_eq!(state.len(), 4);
         let w = app.world();
         let sc = w.resource::<Scene>();
+        let limit = w.resource::<OverflowLimit>().0;
+        assert_eq!(limit, 1350);
         for (layer, count, vis) in state {
             let g = match layer {
                 Layer::Routes => route_geometry(w.resource::<RouteDraw>()),
-                Layer::Stations => station_geometry(sc),
+                Layer::Stations => station_geometry(sc, limit),
                 Layer::Passengers => passenger_geometry(sc),
                 Layer::Buses => bus_geometry(w.resource::<BusDraw>()),
             };
@@ -882,16 +921,17 @@ fn hit_reads_shape_and_colour() {
             .collect(),
         ..default()
     };
-    let g = station_geometry(&sc);
+    let g = station_geometry(&sc, 1350);
     assert_eq!(g.uvs.len(), g.positions.len());
     let white = Some(lin(station_colour(0)));
+    let ink = Some(lin(INK));
     let star_notch = polar(10, 1, 0.55);
     let star_tip = polar(10, 0, 0.9);
     for (i, &shape) in shapes.iter().enumerate() {
         let c = to_world(Vec2::new(4.0 * i as f32, 3.0));
         let at = |l: Vec2| hit(&g, c + l * STATION_HALF);
         assert_eq!(at(Vec2::ZERO), white, "{shape:?} centre");
-        assert_eq!(at(Vec2::new(0.0, 0.85)), white, "{shape:?} top");
+        assert_eq!(at(Vec2::new(0.0, 0.85)), ink, "{shape:?} top");
         let corner = at(Vec2::new(0.85, 0.85));
         let base = at(Vec2::new(0.0, -0.75));
         let side = at(Vec2::new(0.9, 0.0));
@@ -901,7 +941,7 @@ fn hit_reads_shape_and_colour() {
             Shape::Circle => {
                 assert_eq!(corner, None);
                 assert_eq!(base, white);
-                assert_eq!(side, white);
+                assert_eq!(side, ink);
                 assert_eq!(notch, white);
             }
             Shape::Triangle => {
@@ -910,28 +950,521 @@ fn hit_reads_shape_and_colour() {
                 assert_eq!(side, None);
             }
             Shape::Square => {
-                assert_eq!(corner, white);
+                assert_eq!(corner, ink);
                 assert_eq!(base, white);
-                assert_eq!(side, white);
+                assert_eq!(side, ink);
             }
             Shape::Star => {
                 assert_eq!(corner, None);
                 assert_eq!(notch, None);
-                assert_eq!(tip, white);
+                assert_eq!(tip, ink);
             }
         }
         assert_eq!(hit(&g, c + Vec2::splat(1.2 * STATION_HALF)), None);
+    }
+    let pg = passenger_geometry(&Scene {
+        passengers: shapes
+            .iter()
+            .enumerate()
+            .map(|(i, &want)| PassengerInst {
+                station: StationId(0),
+                slot: i as u8,
+                pos: Vec2::new(4.0 * i as f32, 3.0),
+                want,
+            })
+            .collect(),
+        ..default()
+    });
+    let plain = Some(lin(PASSENGER_COLOUR));
+    for (i, &shape) in shapes.iter().enumerate() {
+        let c = to_world(Vec2::new(4.0 * i as f32, 3.0));
+        let at = |l: Vec2| hit(&pg, c + l * PASSENGER_HALF);
+        assert_eq!(at(Vec2::ZERO), plain, "{shape:?} centre");
+        assert_eq!(at(Vec2::new(0.0, 0.85)), plain, "{shape:?} top");
+        let corner = at(Vec2::new(0.85, 0.85));
+        assert_eq!(corner.is_some(), shape == Shape::Square, "{shape:?}");
     }
     let bus = bus_geometry(&BusDraw {
         buses: vec![BusInst {
             id: BusId(0),
             pos: Vec2::new(5.0, 5.0),
             riders: 0,
+            route: Some(RouteId(0)),
         }],
     });
     let bc = to_world(Vec2::new(5.0, 5.0));
     assert_eq!(hit(&bus, bc + BUS_HALF * 0.95), Some(lin(BUS_COLOUR)));
     assert_eq!(hit(&bus, bc + BUS_HALF * 1.05), None);
+    assert_eq!(hit(&bus, bc), Some(lin(route_colour(RouteId(0)))));
+}
+
+const FILL: [f32; 4] = [0.25, 0.5, 0.75, 1.0];
+
+fn outlined(shape: Shape, x: f32, y: f32) -> Option<[f32; 4]> {
+    shade(
+        OUTLINE + shape_code(shape),
+        Vec2::new(x, y),
+        FILL,
+        Vec2::ZERO,
+    )
+}
+
+#[test]
+fn outlined_shapes_hand_values() {
+    let fill = Some(FILL);
+    let ink = Some(lin(INK));
+    assert_eq!(INK.to_u8_array(), [0x14, 0x21, 0x3D, 255]);
+    assert_eq!(BAND, [0.24, 0.20, 0.24, 0.14]);
+    assert_eq!((OUTLINE, RING, DOT_GRID), (4, 8, 9));
+    for shape in Shape::ALL.into_iter().chain([Shape::Star]) {
+        assert_eq!(outlined(shape, 0.0, 0.0), fill, "{shape:?} centre");
+        assert_eq!(outlined(shape, 1.05, 1.05), None, "{shape:?} outside");
+    }
+    assert_eq!(outlined(Shape::Circle, 0.7, 0.0), fill);
+    assert_eq!(outlined(Shape::Circle, 0.8, 0.0), ink);
+    assert_eq!(outlined(Shape::Circle, 0.0, -0.95), ink);
+    assert_eq!(outlined(Shape::Circle, 1.05, 0.0), None);
+    assert_eq!(outlined(Shape::Circle, 0.8, 0.8), None);
+    assert_eq!(outlined(Shape::Triangle, 0.0, 0.5), fill);
+    assert_eq!(outlined(Shape::Triangle, 0.0, -0.25), fill);
+    assert_eq!(outlined(Shape::Triangle, 0.0, 0.7), ink);
+    assert_eq!(outlined(Shape::Triangle, 0.0, -0.4), ink);
+    assert_eq!(outlined(Shape::Triangle, 0.0, -0.6), None);
+    assert_eq!(outlined(Shape::Triangle, 0.9, 0.0), None);
+    assert_eq!(outlined(Shape::Square, 0.7, 0.7), fill);
+    assert_eq!(outlined(Shape::Square, 0.9, 0.0), ink);
+    assert_eq!(outlined(Shape::Square, 0.8, -0.8), ink);
+    assert_eq!(outlined(Shape::Square, 0.99, 0.99), ink);
+    assert_eq!(outlined(Shape::Square, 1.01, 0.0), None);
+    assert_eq!(outlined(Shape::Star, 0.0, 0.5), fill);
+    assert_eq!(outlined(Shape::Star, 0.0, 0.8), ink);
+    let notch = |r: f32| {
+        let p = polar(10, 1, r);
+        outlined(Shape::Star, p.x, p.y)
+    };
+    assert_eq!(notch(0.2), fill);
+    assert_eq!(notch(0.4), ink);
+    assert_eq!(notch(0.55), None);
+    for code in 0..4 {
+        for p in [Vec2::ZERO, Vec2::new(0.0, 0.9), Vec2::new(0.9, 0.9)] {
+            let want = (shape_distance(code, p) <= 0.0).then_some(FILL);
+            assert_eq!(shade(code, p, FILL, Vec2::ZERO), want, "code {code} at {p}");
+        }
+    }
+    assert_eq!(shade(SOLID, Vec2::new(0.99, 0.99), FILL, Vec2::ZERO), fill);
+    assert_eq!(shade(0, Vec2::new(0.9, 0.0), FILL, Vec2::ZERO), fill);
+    assert_eq!(shade(0, Vec2::new(0.9, 0.9), FILL, Vec2::ZERO), None);
+}
+
+fn ring(fraction: f32, x: f32, y: f32) -> Option<[f32; 4]> {
+    shade(
+        RING,
+        Vec2::new(x, y),
+        [0.5, 0.25, 0.125, fraction],
+        Vec2::ZERO,
+    )
+}
+
+#[test]
+fn ring_meter_hand_values() {
+    let lit = Some([0.5, 0.25, 0.125, 1.0]);
+    let (top, right, left) = ((0.05, 0.9), (0.9, -0.05), (-0.9, 0.0));
+    for (x, y) in [top, right, left, (0.0, -0.9)] {
+        assert_eq!(ring(0.0, x, y), None, "empty at {x} {y}");
+        assert_eq!(ring(1.0, x, y), lit, "full at {x} {y}");
+    }
+    assert_eq!(ring(0.25, top.0, top.1), lit);
+    assert_eq!(ring(0.25, 0.9, 0.05), lit);
+    assert_eq!(ring(0.25, right.0, right.1), None);
+    assert_eq!(ring(0.25, left.0, left.1), None);
+    assert_eq!(ring(0.25, 0.0, -0.9), None);
+    assert_eq!(ring(0.5, right.0, right.1), lit);
+    assert_eq!(ring(0.5, left.0, left.1), None);
+    assert_eq!(ring(0.8, left.0, left.1), lit);
+    assert_eq!(ring(0.7, left.0, left.1), None);
+    assert_eq!(RING_IN, 0.80);
+    for fraction in [0.25, 1.0] {
+        assert_eq!(ring(fraction, 0.05, 0.75), None);
+        assert_eq!(ring(fraction, 0.05, 0.85), lit);
+        assert_eq!(ring(fraction, 0.05, 0.95), lit);
+        assert_eq!(ring(fraction, 0.05, 1.05), None);
+        assert_eq!(ring(fraction, 0.0, 0.0), None);
+    }
+    assert_eq!(ring_fraction(0, 1350), 0.0);
+    assert_eq!(ring_fraction(675, 1350), 0.5);
+    assert_eq!(ring_fraction(1350, 1350), 1.0);
+    assert_eq!(ring_fraction(5000, 1350), 1.0);
+    assert!(ring_fraction(5000, u32::MAX) < 0.00001);
+    let sc = Scene {
+        stations: vec![StationInst {
+            id: StationId(0),
+            pos: Vec2::new(10.0, 10.0),
+            shape: Shape::Circle,
+            overflow: 675,
+        }],
+        ..default()
+    };
+    let g = station_geometry(&sc, 1350);
+    let red = Some(lin(RING_COLOUR));
+    let at = |x: f32, y: f32| hit(&g, to_world(Vec2::new(10.0 + x, 10.0 + y)));
+    assert_eq!(RING_COLOUR.to_u8_array(), [0xD0, 0x00, 0x00, 255]);
+    assert_eq!(at(0.05, -1.125), red);
+    assert_eq!(at(1.125, -0.05), red);
+    assert_eq!(at(1.125, 0.05), red);
+    assert_eq!(at(0.05, 1.125), red);
+    assert_eq!(at(-0.05, 1.125), None);
+    assert_eq!(at(-1.125, 0.0), None);
+    assert_eq!(at(-0.05, -1.125), None);
+    assert_eq!(at(0.05, -0.7), Some(lin(INK)));
+    assert_eq!(at(0.05, -0.9), None);
+    assert_eq!(at(0.05, -1.3), None);
+    assert_eq!(at(0.0, 0.0), Some(lin(station_colour(675))));
+}
+
+#[test]
+fn dot_grid_hand_values() {
+    let rd = RouteDraw {
+        rev: Some(0),
+        grid: grid_size(&pack_scenario()),
+        routes: Vec::new(),
+    };
+    assert_eq!(rd.grid, Vec2::new(64.0, 40.0));
+    let g = route_geometry(&rd);
+    assert_eq!((g.positions.len(), g.indices.len()), (4, 6));
+    assert_within(
+        &g,
+        0..4,
+        to_world(Vec2::new(32.0, 20.0)),
+        Vec2::new(31.5, 19.5),
+        DOT_COLOUR,
+    );
+    assert_eq!(g.positions[0], [0.5, -39.5, 0.0]);
+    assert_eq!(g.positions[2], [63.5, -0.5, 0.0]);
+    let dot = Some(lin(DOT_COLOUR));
+    let at = |x: f32, y: f32| hit(&g, to_world(Vec2::new(x, y)));
+    assert_eq!(DOT_COLOUR.to_u8_array(), [0xF0, 0x76, 0x6A, 255]);
+    assert_eq!(DOT_R, 0.07);
+    assert_eq!(at(10.0, 10.0), dot);
+    assert_eq!(at(10.5, 10.5), None);
+    assert_eq!(at(10.06, 10.0), dot);
+    assert_eq!(at(10.0, 9.94), dot);
+    assert_eq!(at(10.08, 10.0), None);
+    assert_eq!(at(10.06, 10.06), None);
+    assert_eq!(at(10.5, 10.0), None);
+    assert_eq!(at(1.0, 1.0), dot);
+    assert_eq!(at(63.0, 39.0), dot);
+    assert_eq!(at(0.0, 0.0), None);
+    assert_eq!(at(64.0, 40.0), None);
+    assert_eq!(at(0.0, 10.0), None);
+    assert_eq!(at(10.0, 40.0), None);
+    assert_eq!(
+        shade(DOT_GRID, Vec2::ZERO, FILL, Vec2::new(-3.0, -7.0)),
+        Some(FILL)
+    );
+    assert_eq!(
+        shade(DOT_GRID, Vec2::ZERO, FILL, Vec2::new(-3.5, -7.0)),
+        None
+    );
+    assert!(route_geometry(&RouteDraw::default()).positions.is_empty());
+    let narrow = RouteDraw {
+        grid: Vec2::new(1.0, 40.0),
+        ..default()
+    };
+    assert!(route_geometry(&narrow).positions.is_empty());
+}
+
+#[test]
+fn shader_constants_match() {
+    let wesl = include_str!("../src/shapes.wesl");
+    assert!(wesl.contains("const RING_IN: f32 = 0.80;"));
+    assert!(wesl.contains("const DOT_R: f32 = 0.07;"));
+    let ring = format!("const RING_IN: f32 = {RING_IN:.2};");
+    let dot = format!("const DOT_R: f32 = {DOT_R:.2};");
+    assert!(wesl.contains(&ring));
+    assert!(wesl.contains(&dot));
+    assert_eq!(wesl.matches("0.80").count(), 1);
+    assert_eq!(wesl.matches("0.07").count(), 1);
+    for field in ["tint: vec4<f32>,", "ink: vec4<f32>,", "band: vec4<f32>,"] {
+        assert_eq!(wesl.matches(field).count(), 1, "{field}");
+    }
+    let order: Vec<usize> = ["tint:", "ink:", "band:"]
+        .iter()
+        .map(|f| wesl.find(f).expect("uniform field"))
+        .collect();
+    assert!(order[0] < order[1] && order[1] < order[2]);
+}
+
+fn quad_codes(g: &Geometry) -> Vec<u32> {
+    assert_eq!(g.positions.len() % 4, 0);
+    assert_eq!(g.indices.len(), g.positions.len() / 4 * 6);
+    g.uvs
+        .chunks(4)
+        .map(|q| {
+            let code = (q[0][0] / 4.0).round();
+            for uv in q {
+                assert_eq!((uv[0] / 4.0).round(), code);
+            }
+            code as u32
+        })
+        .collect()
+}
+
+fn bus_view(id: u16, mode: BusMode, riders: u32) -> BusView {
+    BusView {
+        id: BusId(id),
+        mode,
+        phase: BusPhase::Boarding,
+        at: StationId(0),
+        last_arrival: None,
+        riders: (0..riders).map(PassengerId).collect(),
+    }
+}
+
+#[test]
+fn station_route_bus_geometry_v1() {
+    let shapes = [Shape::Circle, Shape::Triangle, Shape::Square, Shape::Star];
+    let overflow = [0u32, 0, 675, 2000];
+    let sc = Scene {
+        stations: shapes
+            .iter()
+            .enumerate()
+            .map(|(i, &shape)| StationInst {
+                id: StationId(i as u16),
+                pos: Vec2::new(5.0 + 10.0 * i as f32, 7.0),
+                shape,
+                overflow: overflow[i],
+            })
+            .collect(),
+        ..default()
+    };
+    let g = station_geometry(&sc, 1350);
+    assert_eq!(quad_codes(&g), vec![4, 5, 6, 8, 7, 8]);
+    assert_within(
+        &g,
+        0..4,
+        to_world(Vec2::new(5.0, 7.0)),
+        Vec2::splat(STATION_HALF),
+        station_colour(0),
+    );
+    assert_eq!(STATION_HALF, 0.8);
+    assert_eq!(g.positions[8], [25.0 - 0.8, -7.0 - 0.8, 0.0]);
+    assert_eq!(g.colors[8], lin(station_colour(675)));
+    assert_eq!(g.positions[12], [25.0 - 1.25, -7.0 - 1.25, 0.0]);
+    assert_eq!(g.positions[14], [25.0 + 1.25, -7.0 + 1.25, 0.0]);
+    assert_eq!(g.colors[12], lin(RING_COLOUR.with_alpha(0.5)));
+    assert_eq!(g.colors[16], lin(station_colour(2000)));
+    assert_eq!(g.colors[20], lin(RING_COLOUR.with_alpha(1.0)));
+    assert_eq!(g.positions[20], [35.0 - 1.25, -7.0 - 1.25, 0.0]);
+    let calm = Scene {
+        stations: sc
+            .stations
+            .iter()
+            .map(|s| StationInst { overflow: 0, ..*s })
+            .collect(),
+        ..default()
+    };
+    assert_eq!(quad_codes(&station_geometry(&calm, 1350)), vec![4, 5, 6, 7]);
+    assert_eq!(
+        quad_codes(&station_geometry(&sc, u32::MAX)),
+        vec![4, 5, 6, 8, 7, 8]
+    );
+    let bench = station_geometry(&sc, u32::MAX);
+    assert!(bench.colors[12][3] < 0.00001);
+    assert_eq!(hit(&bench, to_world(Vec2::new(25.05, 7.0 - 1.125))), None);
+
+    let rd = RouteDraw {
+        rev: Some(1),
+        grid: Vec2::new(64.0, 40.0),
+        routes: vec![
+            RouteInst {
+                id: RouteId(0),
+                points: vec![
+                    Vec2::new(5.0, 5.0),
+                    Vec2::new(15.0, 5.0),
+                    Vec2::new(15.0, 25.0),
+                ],
+            },
+            RouteInst {
+                id: RouteId(3),
+                points: vec![Vec2::new(40.0, 30.0), Vec2::new(50.0, 30.0)],
+            },
+        ],
+    };
+    let g = route_geometry(&rd);
+    assert_eq!(quad_codes(&g), vec![9, 2, 2, 0, 0, 0, 2, 0, 0]);
+    assert_within(
+        &g,
+        4..8,
+        to_world(Vec2::new(10.0, 5.0)),
+        Vec2::new(5.0, 0.20),
+        route_colour(RouteId(0)),
+    );
+    assert_within(
+        &g,
+        8..12,
+        to_world(Vec2::new(15.0, 15.0)),
+        Vec2::new(0.20, 10.0),
+        route_colour(RouteId(0)),
+    );
+    for (k, p) in rd.routes[0].points.iter().enumerate() {
+        assert_within(
+            &g,
+            12 + 4 * k..16 + 4 * k,
+            to_world(*p),
+            Vec2::splat(0.20),
+            route_colour(RouteId(0)),
+        );
+    }
+    assert_within(
+        &g,
+        24..28,
+        to_world(Vec2::new(45.0, 30.0)),
+        Vec2::new(5.0, 0.20),
+        route_colour(RouteId(3)),
+    );
+    let teal = Some(lin(route_colour(RouteId(0))));
+    let at = |x: f32, y: f32| hit(&g, to_world(Vec2::new(x, y)));
+    assert_eq!(at(10.0, 5.19), teal);
+    assert_eq!(at(10.0, 5.21), None);
+    assert_eq!(at(4.85, 5.0), teal);
+    assert_eq!(at(4.85, 4.85), None);
+    assert_eq!(at(15.13, 4.87), teal);
+    assert_eq!(at(15.18, 4.82), None);
+    assert_eq!(at(15.0, 25.15), teal);
+    assert_eq!(at(15.0, 25.25), None);
+    assert_eq!(at(20.0, 5.0), Some(lin(DOT_COLOUR)));
+
+    let view = SimView {
+        tick: Tick(9),
+        free_buses: 0,
+        route_count: 2,
+        table_rev: 1,
+        score: 0,
+        queued: 0,
+        mode: SimMode::Running,
+        overflow: Vec::new(),
+        queues: Vec::new(),
+        buses: vec![
+            bus_view(
+                0,
+                BusMode::Active {
+                    route: RouteId(0),
+                    dir: Dir::Fwd,
+                },
+                3,
+            ),
+            bus_view(
+                1,
+                BusMode::Active {
+                    route: RouteId(3),
+                    dir: Dir::Back,
+                },
+                0,
+            ),
+            bus_view(2, BusMode::Retiring, 1),
+        ],
+    };
+    let riders = scene(&view, &[]).riders;
+    assert_eq!(
+        riders,
+        vec![
+            (BusId(0), 3, Some(RouteId(0))),
+            (BusId(1), 0, Some(RouteId(3))),
+            (BusId(2), 1, None),
+        ]
+    );
+    let at_pos = [
+        (BusId(0), Vec2::new(10.0, 20.0)),
+        (BusId(1), Vec2::new(30.0, 5.0)),
+        (BusId(2), Vec2::new(40.0, 12.0)),
+        (BusId(7), Vec2::new(50.0, 12.0)),
+    ];
+    let bd = BusDraw {
+        buses: buses(&at_pos, &riders),
+    };
+    assert_eq!(
+        bd.buses
+            .iter()
+            .map(|b| (b.id.0, b.riders, b.route))
+            .collect::<Vec<_>>(),
+        vec![
+            (0, 3, Some(RouteId(0))),
+            (1, 0, Some(RouteId(3))),
+            (2, 1, None),
+            (7, 0, None),
+        ]
+    );
+    assert_eq!(bus_colour(Some(RouteId(3))), route_colour(RouteId(3)));
+    assert_eq!(bus_colour(None), RETIRED_COLOUR);
+    assert_eq!(RETIRED_COLOUR.to_u8_array(), [0x8D, 0x99, 0xAE, 255]);
+    let g = bus_geometry(&bd);
+    assert_eq!(quad_codes(&g), vec![2, 2, 0, 0, 0, 2, 2, 2, 2, 0, 2, 2]);
+    let inner = BUS_HALF - Vec2::splat(BUS_INSET);
+    assert!((inner - Vec2::new(0.52, 0.27)).length() < 1e-6);
+    let bodies = [
+        (0, Vec2::new(10.0, 20.0), route_colour(RouteId(0))),
+        (20, Vec2::new(30.0, 5.0), route_colour(RouteId(3))),
+        (28, Vec2::new(40.0, 12.0), RETIRED_COLOUR),
+        (40, Vec2::new(50.0, 12.0), RETIRED_COLOUR),
+    ];
+    for (first, pos, body) in bodies {
+        let c = to_world(pos);
+        assert_within(&g, first..first + 4, c, BUS_HALF, INK);
+        assert_within(&g, first + 4..first + 8, c, inner, body);
+        assert_eq!(hit(&g, c + Vec2::new(0.0, -0.15)), Some(lin(body)));
+        assert_eq!(hit(&g, c + Vec2::new(0.56, 0.0)), Some(lin(INK)));
+        assert_eq!(hit(&g, c + Vec2::new(0.0, -0.31)), Some(lin(INK)));
+        assert_eq!(hit(&g, c + Vec2::new(0.0, -0.4)), None);
+    }
+    let c = to_world(Vec2::new(10.0, 20.0));
+    for k in 0..3 {
+        let rider = c + rider_offset(k);
+        assert_within(
+            &g,
+            8 + 4 * k as usize..12 + 4 * k as usize,
+            rider,
+            Vec2::splat(RIDER_HALF),
+            RIDER_COLOUR,
+        );
+        assert_eq!(hit(&g, rider), Some(lin(RIDER_COLOUR)));
+        assert_ne!(
+            hit(&g, rider + Vec2::splat(0.09)),
+            Some(lin(RIDER_COLOUR)),
+            "rider {k} is round"
+        );
+    }
+    assert_eq!(RIDER_HALF, 0.1);
+    assert_eq!(
+        hit(&g, c + rider_offset(3)),
+        Some(lin(route_colour(RouteId(0))))
+    );
+}
+
+#[test]
+fn overflow_limit_follows_the_balance() {
+    assert_eq!(OverflowLimit::default(), OverflowLimit(1350));
+    assert_eq!(Balance::mvp().overflow_limit, 1350);
+    let mut app = demo_app();
+    frame(&mut app, step());
+    let limit = *app.world().resource::<OverflowLimit>();
+    assert_eq!(limit, OverflowLimit(1350));
+    let mut app = base_app();
+    app.add_systems(PostStartup, stress::start);
+    app.insert_resource(TimeUpdateStrategy::ManualDuration(step()));
+    app.update();
+    app.update();
+    let limit = *app.world().resource::<OverflowLimit>();
+    assert_eq!(limit, OverflowLimit(Balance::bench().overflow_limit));
+    assert_eq!(limit.0, u32::MAX);
+    let state = layer_state(&mut app);
+    let sc = app.world().resource::<Scene>();
+    let want = station_geometry(sc, limit.0).positions.len();
+    assert_eq!(sc.stations.len(), 64);
+    assert!(
+        state
+            .iter()
+            .any(|(l, n, _)| *l == Layer::Stations && *n == Some(want))
+    );
 }
 
 #[test]

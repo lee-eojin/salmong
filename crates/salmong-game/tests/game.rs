@@ -1049,6 +1049,14 @@ fn game_draws_inside_the_four_layer_meshes() {
     assert_eq!(screen(&g), Screen::Menu);
     assert!(g.app.world().resource::<BusDraw>().buses.is_empty());
     check_layers(&mut g);
+    let (dots, vis) = layer_vertices(&mut g.app, Layer::Routes);
+    assert_eq!(dots.len(), 4);
+    assert_eq!(dots[0], [0.5, -39.5, 0.0]);
+    assert_eq!(dots[2], [63.5, -0.5, 0.0]);
+    assert_eq!(vis, Visibility::Inherited);
+    let (stations, vis) = layer_vertices(&mut g.app, Layer::Stations);
+    assert_eq!(stations.len(), 12);
+    assert_eq!(vis, Visibility::Inherited);
     frame(
         &mut g,
         step() / 2,

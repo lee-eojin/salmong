@@ -4,15 +4,16 @@ use salmong_core::sim::{Sim, SimView};
 use salmong_game::bus::{BusTrack, bus_pos};
 use salmong_game::demo::{CHECK_EVERY, END_TICK, body, done_line};
 use salmong_game::render::{
-    BUS_COLOUR, BUS_HALF, BusDraw, Geometry, PASSENGER_COLOUR, RouteDraw, STATION_HALF,
-    bus_geometry, buses, hit, passenger_geometry, route_colour, route_geometry, routes, scene,
-    station_colour, station_geometry, to_world,
+    BusDraw, Geometry, PASSENGER_COLOUR, RouteDraw, bus_colour, bus_geometry, buses, grid_size,
+    hit, passenger_geometry, route_colour, route_geometry, routes, scene, station_colour,
+    station_geometry, to_world,
 };
 use salmong_pack::parse_pack;
 use std::process::ExitCode;
 
 const PACK: &[u8] = include_bytes!("../../../assets/scenarios/pack.v1.json");
 const CLEAR: [u8; 3] = [250, 128, 114];
+const BODY: Vec2 = Vec2::new(0.0, 0.15);
 
 fn rgb(c: Srgba) -> [u8; 3] {
     let a = c.to_u8_array();
@@ -67,6 +68,7 @@ fn main() -> ExitCode {
     let sc = scene(&view, &scenario.stations);
     let rd = RouteDraw {
         rev: Some(view.table_rev),
+        grid: grid_size(&scenario),
         routes: routes(&sim.snapshot(), &scenario.stations),
     };
     let bd = BusDraw {
@@ -74,19 +76,14 @@ fn main() -> ExitCode {
     };
     let (gr, gs, gp, gb) = (
         route_geometry(&rd),
-        station_geometry(&sc),
+        station_geometry(&sc, Balance::mvp().overflow_limit),
         passenger_geometry(&sc),
         bus_geometry(&bd),
     );
     let layers = [(0, &gr), (1, &gs), (2, &gp), (3, &gb)];
     let mut candidates: Vec<(&str, Vec2, usize, [u8; 3])> = Vec::new();
     for s in &sc.stations {
-        candidates.push((
-            "station",
-            s.pos + Vec2::new(0.0, -0.55 * STATION_HALF / 0.8),
-            1,
-            rgb(station_colour(s.overflow)),
-        ));
+        candidates.push(("station", s.pos, 1, rgb(station_colour(s.overflow))));
     }
     for r in &rd.routes {
         for pair in r.points.windows(2) {
@@ -99,17 +96,12 @@ fn main() -> ExitCode {
         }
     }
     for b in &bd.buses {
-        candidates.push((
-            "bus",
-            b.pos + Vec2::new(0.0, BUS_HALF.y * 0.6),
-            3,
-            rgb(BUS_COLOUR),
-        ));
+        candidates.push(("bus", b.pos + BODY, 3, rgb(bus_colour(b.route))));
     }
     for p in &sc.passengers {
         candidates.push(("passenger", p.pos, 2, rgb(PASSENGER_COLOUR)));
     }
-    for (x, y) in [(2.0, 2.0), (62.0, 38.0), (32.0, 2.0), (2.0, 38.0)] {
+    for (x, y) in [(2.5, 2.5), (61.5, 37.5), (32.5, 2.5), (2.5, 37.5)] {
         candidates.push(("clear", Vec2::new(x, y), usize::MAX, CLEAR));
     }
     let mut seen = std::collections::BTreeSet::new();

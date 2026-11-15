@@ -1,24 +1,33 @@
 use bevy::prelude::*;
 use salmong_core::balance::Balance;
 use salmong_core::ids::{BusId, Tick};
-use salmong_core::scenario::Scenario;
+use salmong_core::scenario::{Scenario, Shape};
 use salmong_core::sim::{Command, Sim, SimView};
 use salmong_game::bus::{BusTrack, bus_pos};
 use salmong_game::game::{body, expect};
 use salmong_game::render::{
-    BEST_COLOUR, BusDraw, DIGIT_COLOUR, DIGIT_STEP, Geometry, HudDraw, OverInst, PANEL_COLOUR,
-    PANEL_HALF, PASSENGER_COLOUR, PendingDraw, RouteDraw, STATION_HALF, best_row, buses,
-    buses_layer, digit_segments, digits, hit, passenger_geometry, route_colour, routes,
-    routes_layer, run_row, scene, segment_centres, station_colour, station_geometry, to_world,
+    BEST_COLOUR, BusDraw, DIGIT_COLOUR, DIGIT_STEP, DOT_COLOUR, Geometry, HudDraw, INK, OverInst,
+    PANEL_COLOUR, PANEL_HALF, PASSENGER_COLOUR, PendingDraw, RING_COLOUR, RING_HALF, RouteDraw,
+    best_row, bus_colour, buses, buses_layer, digit_segments, digits, hit, passenger_geometry,
+    ring_fraction, route_colour, routes, routes_layer, run_row, scene, segment_centres,
+    station_colour, station_geometry, to_world,
 };
 use salmong_pack::parse_pack;
 use std::collections::BTreeSet;
+use std::f32::consts::TAU;
 use std::process::ExitCode;
 
 const PACK: &[u8] = include_bytes!("../../../assets/scenarios/pack.v1.json");
 const CLEAR: [u8; 3] = [250, 128, 114];
-const KINDS: [&str; 9] = [
+const BODY: Vec2 = Vec2::new(0.0, 0.15);
+const RING_AT: f32 = 0.9;
+const RING_MIN: f32 = 0.1;
+const KINDS: [&str; 13] = [
     "station",
+    "outline",
+    "ring",
+    "dot",
+    "bus",
     "route",
     "passenger",
     "panel",
@@ -43,6 +52,19 @@ fn top(layers: &[(usize, &Geometry)], world: Vec2) -> Option<(usize, [u8; 3])> {
         }
     }
     out
+}
+
+fn outline_rise(shape: Shape) -> f32 {
+    match shape {
+        Shape::Circle | Shape::Square => 0.7,
+        Shape::Triangle => 0.64,
+        Shape::Star => 0.65,
+    }
+}
+
+fn ring_point(centre: Vec2, fraction: f32) -> Vec2 {
+    let a = TAU * fraction / 2.0;
+    centre + Vec2::new(a.sin(), -a.cos()) * RING_HALF * RING_AT
 }
 
 fn positions(view: &SimView, scenario: &Scenario) -> Vec<(BusId, Vec2)> {
@@ -106,11 +128,13 @@ fn main() -> ExitCode {
         Some(n) => Some(n.parse::<u64>().expect("--best takes a number or none")),
     };
     let grid = Vec2::new(f32::from(scenario.w), f32::from(scenario.h));
+    let limit = Balance::mvp().overflow_limit;
     println!("grid {} {}", scenario.w, scenario.h);
     let view = sim.view();
     let sc = scene(&view, &scenario.stations);
     let rd = RouteDraw {
         rev: Some(view.table_rev),
+        grid,
         routes: routes(&sim.snapshot(), &scenario.stations),
     };
     let bd = BusDraw {
@@ -127,19 +151,24 @@ fn main() -> ExitCode {
     };
     let (gr, gs, gp, gb) = (
         routes_layer(&rd, &PendingDraw::default()),
-        station_geometry(&sc),
+        station_geometry(&sc, limit),
         passenger_geometry(&sc),
         buses_layer(&bd, &hud),
     );
     let layers = [(0, &gr), (1, &gs), (2, &gp), (3, &gb)];
     let mut candidates: Vec<(&str, Vec2, usize, [u8; 3])> = Vec::new();
     for s in &sc.stations {
-        candidates.push((
-            "station",
-            s.pos + Vec2::new(0.0, -0.55 * STATION_HALF / 0.8),
-            1,
-            rgb(station_colour(s.overflow)),
-        ));
+        candidates.push(("station", s.pos, 1, rgb(station_colour(s.overflow))));
+        let band = s.pos - Vec2::new(0.0, outline_rise(s.shape));
+        candidates.push(("outline", band, 1, rgb(INK)));
+        let fraction = ring_fraction(s.overflow, limit);
+        if s.overflow > 0 && fraction >= RING_MIN {
+            let lit = ring_point(s.pos, fraction);
+            candidates.push(("ring", lit, 1, rgb(RING_COLOUR)));
+        }
+    }
+    for b in &bd.buses {
+        candidates.push(("bus", b.pos + BODY, 3, rgb(bus_colour(b.route))));
     }
     for r in &rd.routes {
         for pair in r.points.windows(2) {
@@ -174,7 +203,8 @@ fn main() -> ExitCode {
         digit_candidates(&mut candidates, first, b);
     }
     for (x, y) in [(2.0, 2.0), (62.0, 38.0), (32.0, 2.0), (2.0, 38.0)] {
-        candidates.push(("clear", Vec2::new(x, y), usize::MAX, CLEAR));
+        candidates.push(("dot", Vec2::new(x, y), 0, rgb(DOT_COLOUR)));
+        candidates.push(("clear", Vec2::new(x + 0.5, y + 0.5), usize::MAX, CLEAR));
     }
     let mut seen = BTreeSet::new();
     for (kind, grid, layer, colour) in candidates {
@@ -192,7 +222,9 @@ fn main() -> ExitCode {
     }
     let missing: Vec<_> = KINDS
         .iter()
-        .filter(|k| !seen.contains(*k) && (**k != "route" || !rd.routes.is_empty()))
+        .filter(|k| !seen.contains(*k))
+        .filter(|k| **k != "route" || !rd.routes.is_empty())
+        .filter(|k| **k != "bus" || !bd.buses.is_empty())
         .collect();
     if missing.is_empty() {
         ExitCode::SUCCESS

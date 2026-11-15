@@ -147,6 +147,7 @@ listed one by one, not `2d`, which adds `webgl2` (Q2) and gilrs and wayland, whi
   `?replay=edits` (`salmong_game::edits`, M3.4) replays reverse, shrink, disjoint and remove edits on scenario 0 with riders on board, issues the shrink while the clock is paused (Q10), and logs drawn-step and rider-conservation lines beside the hashes.
   Buses blend previous and current tick snapshots by the fixed overstep fraction. A bus with no previous snapshot snaps.
   Edits cause no jumps, because segments always finish.
+  M6.2 shader art v1 (Q13) adds fragment codes 4 to 9 to `shapes.wesl` (stations with an ink band, the overflow ring meter, the dot grid) and puts their quads into the same four `Layer` meshes and the one `ShapeMaterial`, so the frame still has 5 draws.
 - **Input (`salmong_core::input`, M3.2):** one gesture. Left press on a station, drag across stations, release on the last one
   builds a trail; drag back onto the second-last station undoes. Hit radius 1.5 grid units; screen maps to grid by a centred
   letterbox (`Fit`). Esc, cursor leaving, focus loss or release off a station cancel. Routes are tried by ascending id:
@@ -310,7 +311,7 @@ overlaps it, so stages are guides, not a sum: the gate is measured frame interva
 - **Entities:** 64 stations, 8 routes, 32 buses, under 200 with UI. 32 buses in service is not measured until a bus-adding command exists; the M5.2 gate measures 8. A station draws at most 16 queued passengers *(tune)*
   plus a `+n` badge, so passenger instances stay under 1,300 at any population. Boarding picks are O(shapes) (section 2).
 - **Batching:** passengers, stations and buses are one instanced draw each (vertex-rate instance buffers, shape chosen in
-  the fragment shader), which keeps a later WebGL2 port possible. Route meshes rebuild on edit only. At most 20 draws per frame. M3.1 draws one CPU-built mesh per kind (routes, stations, passengers, buses: 4 draws); M5.2 swaps its tessellator for quads and a fragment-shader material without changing the draw resources. M5.2 does this as quad batching (4 vertices per instance in one mesh per kind, `instanceCount` 1), not step-mode instancing.
+  the fragment shader), which keeps a later WebGL2 port possible. Route meshes rebuild on edit only. At most 20 draws per frame. M3.1 draws one CPU-built mesh per kind (routes, stations, passengers, buses: 4 draws); M5.2 swaps its tessellator for quads and a fragment-shader material without changing the draw resources. M5.2 does this as quad batching (4 vertices per instance in one mesh per kind, `instanceCount` 1), not step-mode instancing. M6.2 shader art v1 puts codes 4 to 9 into the same four layer meshes and one material, so the draw count stays 5, but the fragment shader changed, so the M5.2 frame gate must run again.
 - **Fixed timestep:** 30 Hz via `Time<Fixed>`, 60 ticks/s at x2. A render frame runs at most 2 ticks; time beyond that is
   discarded (`Time<Virtual>::max_delta` is 2 timesteps, M3.1a), so the sim slows instead of spiralling. Hidden tab or pause: no ticks, accumulator cleared on return. Inputs
   are bound to tick numbers, so all of this changes when ticks run, never what they compute.
