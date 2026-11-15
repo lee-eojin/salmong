@@ -3,6 +3,7 @@ name = "salmong-game"
 version = "0.1.0"
 edition.workspace = true
 rust-version.workspace = true
+license.workspace = true
 
 [dependencies]
 salmong-core = { path = "../salmong-core" }

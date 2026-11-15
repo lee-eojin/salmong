@@ -97,3 +97,9 @@ scripts/check-best-score.sh
 Before you start a milestone unit, run `scripts/claim-unit.sh <unit>`. It pushes `unit/<unit>` from `origin/main` and fails if that branch or an open PR for it already exists, so only one worker holds a unit.
 
 To confirm that this README is still true, run `scripts/check-readme.sh`. It runs every command above and follows every link.
+
+## Licence
+
+salmong is licensed under either of [the MIT licence](LICENSE-MIT.txt) or [the Apache License, Version 2.0](LICENSE-APACHE.txt), at your option. The licence covers the code, the shader art and the scenario pack.
+
+[ASSETS.md](ASSETS.md) lists every file under `assets/` and every shader file with its author and licence. `scripts/check-assets.sh` fails if a file has no row, a row has no author or licence, or a row names a file that is not in the repository. CI runs it.
