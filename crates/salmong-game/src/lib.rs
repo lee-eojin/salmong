@@ -8,6 +8,7 @@ pub mod input;
 pub mod pack;
 pub mod render;
 pub mod sim;
+pub mod sound;
 pub mod stress;
 
 use bevy::app::PluginGroupBuilder;
@@ -49,4 +50,5 @@ pub fn plugins() -> PluginGroupBuilder {
         .add(pack::PackPlugin)
         .add(best::BestPlugin)
         .add(game::GamePlugin)
+        .add(sound::SoundPlugin)
 }

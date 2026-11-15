@@ -706,19 +706,20 @@ fn hud_hand_table() {
         ticks: 50,
     });
     assert_eq!(
-        hud(Screen::Loading, &both, run, best, grid),
+        hud(Screen::Loading, &both, run, best, grid, false),
         HudDraw::default()
     );
     let on = HudDraw {
         grid,
         paused: true,
         fast: true,
+        muted: false,
         over: None,
     };
-    assert_eq!(hud(Screen::Menu, &both, run, best, grid), on);
-    assert_eq!(hud(Screen::Playing, &both, run, best, grid), on);
+    assert_eq!(hud(Screen::Menu, &both, run, best, grid, false), on);
+    assert_eq!(hud(Screen::Playing, &both, run, best, grid, false), on);
     assert_eq!(
-        hud(Screen::GameOver, &both, run, best, grid),
+        hud(Screen::GameOver, &both, run, best, grid, false),
         HudDraw {
             over: Some(OverInst {
                 score: 7,
@@ -728,16 +729,31 @@ fn hud_hand_table() {
         }
     );
     assert_eq!(
-        hud(Screen::GameOver, &both, run, None, grid).over,
+        hud(Screen::GameOver, &both, run, None, grid, false).over,
         Some(OverInst {
             score: 7,
             best: None
         })
     );
-    assert_eq!(hud(Screen::GameOver, &both, None, best, grid).over, None);
     assert_eq!(
-        hud(Screen::Menu, &Clock::default(), None, None, grid),
+        hud(Screen::GameOver, &both, None, best, grid, false).over,
+        None
+    );
+    assert_eq!(
+        hud(Screen::Menu, &Clock::default(), None, None, grid, false),
         HudDraw { grid, ..default() }
+    );
+    assert_eq!(
+        hud(Screen::Menu, &Clock::default(), None, None, grid, true),
+        HudDraw {
+            grid,
+            muted: true,
+            ..default()
+        }
+    );
+    assert_eq!(
+        hud(Screen::Loading, &both, run, best, grid, true),
+        HudDraw::default()
     );
 }
 
@@ -790,6 +806,7 @@ fn over_hud(score: u64, best: Option<u64>) -> Geometry {
         grid: Vec2::new(64.0, 40.0),
         paused: false,
         fast: false,
+        muted: false,
         over: Some(OverInst { score, best }),
     })
 }
@@ -801,6 +818,7 @@ fn hud_and_ghost_geometry_hand_values() {
         grid,
         paused: true,
         fast: true,
+        muted: false,
         over: None,
     });
     assert_eq!(colour_at(&g, (60.5, 2.0)), Some(SIGN));

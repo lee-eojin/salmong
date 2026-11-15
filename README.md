@@ -58,6 +58,17 @@ trunk serve --release
 
 Wait for `server listening`, then open `http://localhost:8080/` in a browser that supports WebGPU. The first build takes several minutes.
 
+## Keys
+
+| Key | What it does |
+|---|---|
+| `Space` | Pause and resume |
+| `1`, `2` | Speed x1 and x2 |
+| `Escape` | Cancel a drag |
+| `M` | Mute and unmute the sound effects. A mute sign shows at the top right while muted. The browser keeps the choice in `localStorage` under `salmong.mute`. The key is ignored while Control, Super or Alt is held |
+
+Sound plays in the browser build only, and only after the first press or key. The native build is silent.
+
 ## Check the repository
 
 These scripts exit 0 when they pass:

@@ -28,3 +28,19 @@ echo "ok: webgpu enabled, webgl absent from the wasm feature graph"
 CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER=wasm-bindgen-test-runner \
   cargo test --locked -p salmong-game --target wasm32-unknown-unknown --test web_backend
 echo "ok: web build selects the WebGPU backend only"
+
+native=$(cargo tree --locked -p salmong-game --target x86_64-unknown-linux-gnu)
+web=$(cargo tree --locked -p salmong-game --target wasm32-unknown-unknown)
+if grep -qw cpal <<<"$native"; then
+  echo "FAIL: cpal is in the native dependency tree" >&2
+  exit 1
+fi
+if ! grep -qw cpal <<<"$web"; then
+  echo "FAIL: cpal is not in the wasm dependency tree" >&2
+  exit 1
+fi
+echo "ok: audio is in the wasm build only"
+
+CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER=wasm-bindgen-test-runner \
+  cargo test --locked -p salmong-game --target wasm32-unknown-unknown --test web_sound
+echo "ok: the six sounds decode in the web build"

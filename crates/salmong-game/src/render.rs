@@ -139,6 +139,7 @@ pub struct HudDraw {
     pub grid: Vec2,
     pub paused: bool,
     pub fast: bool,
+    pub muted: bool,
     pub over: Option<OverInst>,
 }
 
@@ -512,6 +513,16 @@ pub fn hud_geometry(hud: &HudDraw) -> Geometry {
                 SIGN_COLOUR,
             );
         }
+    }
+    if hud.muted {
+        let at = |x: f32, y: f32| to_world(sign_anchor(hud.grid) + Vec2::new(x, y));
+        g.quad(at(1.5, 0.0), Vec2::splat(0.25), SOLID, SIGN_COLOUR);
+        g.instance(
+            CORNERS.map(|l| at(2.0, 0.0) + 0.6 * Vec2::new(-l.y, l.x)),
+            shape_code(Shape::Triangle),
+            SIGN_COLOUR,
+        );
+        g.segment(at(1.1, 0.7), at(2.7, -0.7), 0.1, BADGE_COLOUR);
     }
     if let Some(over) = hud.over {
         g.quad(to_world(hud.grid / 2.0), PANEL_HALF, SOLID, PANEL_COLOUR);

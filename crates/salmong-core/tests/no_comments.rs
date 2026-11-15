@@ -44,6 +44,7 @@ const BY_EXTENSION: &[(&str, FileClass)] = &[
     ("tla", FileClass::Scan(Syntax::Tla)),
     ("toml", FileClass::Scan(Syntax::Toml)),
     ("txt", FileClass::Exempt),
+    ("wav", FileClass::Exempt),
     ("wesl", FileClass::Scan(Syntax::Wesl)),
     ("yml", FileClass::Scan(Syntax::Yaml)),
 ];
@@ -569,6 +570,7 @@ fn classifies_files() {
         classify("spec/Boarding.safety.cfg"),
         Some(FileClass::Scan(Syntax::Tla))
     );
+    assert_eq!(classify("assets/sounds/board.wav"), Some(FileClass::Exempt));
     assert_eq!(classify("assets/unknown.wgsl"), None);
     assert_eq!(
         classify("crates/salmong-game/src/shapes.wesl"),
