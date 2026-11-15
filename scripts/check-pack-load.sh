@@ -35,6 +35,7 @@ regen=$work/pack.v1.json
 rm -rf "$work"
 mkdir -p "$work/empty" "${asset%/*}"
 cp -R Cargo.toml Cargo.lock rust-toolchain.toml crates "$game/"
+cp -R assets/sounds "$game/assets/"
 
 cargo build -q --locked --manifest-path "$game/Cargo.toml" --target-dir "$cache" -p salmong-oracle || fail "salmong-oracle does not build with Bend absent"
 
